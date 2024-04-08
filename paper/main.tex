@@ -1,0 +1,85 @@
+\documentclass[12pt,a4paper]{article}
+
+% PAPER TITLE
+\newcommand{\asgtitleshort}{Template}
+\newcommand{\asgtitlelong}{Project Report Template}
+
+% NAME
+\newcommand{\nameshort}{Emil}
+\newcommand{\namelong}{E.D Choparinov}
+
+\usepackage[T1]{fontenc}
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+
+\usepackage{biblatex}
+\bibliography{document/refs.bib}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{textcomp,gensymb}
+\usepackage{tikz}
+\usetikzlibrary{arrows,automata}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{minted}
+\usepackage{xcolor}
+\usepackage{csquotes}
+
+\usemintedstyle{perldoc}
+
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{hyperref}
+
+\setlength{\textwidth}{16cm}
+\setlength{\textheight}{22.5cm}
+\setlength{\topmargin}{-2cm}
+\setlength{\oddsidemargin}{0cm}
+\setlength{\evensidemargin}{0cm}
+\setlength{\parindent}{5mm}
+
+\usepackage{blindtext}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\usepackage{lastpage}
+
+\setlength{\headheight}{65pt}
+\rhead{\large \asgtitlelong}
+\lhead{\large \namelong}
+\rfoot{Page \thepage /\pageref{LastPage}}
+
+\newcommand{\ZZ}{\mathbb{Z}}
+\newcommand{\RR}{\mathbb{R}}
+
+\author{\namelong}
+\title{\asgtitlelong}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\thispagestyle{fancy}
+\begin{center}
+    [Abstract]
+\end{center}
+\newpage
+
+\newpage
+\tableofcontents
+\newpage
+
+This is my project template for latex documents. It's pretty straightforward!
+
+\printbibliography
+
+\end{document}
