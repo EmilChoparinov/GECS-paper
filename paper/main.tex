@@ -1,8 +1,8 @@
 \documentclass[12pt,a4paper]{article}
 
 % PAPER TITLE
-\newcommand{\asgtitleshort}{Template}
-\newcommand{\asgtitlelong}{Project Report Template}
+\newcommand{\asgtitleshort}{Graph ECS}
+\newcommand{\asgtitlelong}{A Graph Based Approach To Concurrent ECS Design}
 
 % NAME
 \newcommand{\nameshort}{Emil}
@@ -13,12 +13,13 @@
 \defaultfontfeatures{Ligatures=TeX}
 
 \usepackage{biblatex}
-\bibliography{document/refs.bib}
+\bibliography{paper/refs.bib}
 
+\usepackage{amsthm}
+\usepackage{thmtools}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
-\usepackage{amsthm}
 \usepackage{textcomp,gensymb}
 \usepackage{tikz}
 \usetikzlibrary{arrows,automata}
@@ -45,6 +46,52 @@
 \setlength{\evensidemargin}{0cm}
 \setlength{\parindent}{5mm}
 
+\usepackage{color}
+\definecolor{darkred}{rgb}{0.6,0.0,0.0}
+\definecolor{darkgreen}{rgb}{0,0.50,0}
+\definecolor{lightblue}{rgb}{0.0,0.42,0.91}
+\definecolor{orange}{rgb}{0.99,0.48,0.13}
+\definecolor{grass}{rgb}{0.18,0.80,0.18}
+\definecolor{pink}{rgb}{0.97,0.15,0.45}
+
+% listings
+\usepackage{listings}
+
+% Code definition
+\lstset{
+  aboveskip=1em,
+  breaklines=true,
+  abovecaptionskip=-6pt,
+  captionpos=b,
+  frame=single,
+  numbers=left,
+  numbersep=15pt,
+  numberstyle=\small,
+  showstringspaces=false
+}
+
+
+% Code color theme definition
+\lstdefinestyle{colored}{ %
+  basicstyle=\ttfamily,
+  backgroundcolor=\color{white},
+  commentstyle=\color{darkgreen},
+  keywordstyle=\color{blue}\bfseries\itshape,
+  stringstyle=\color{red},
+  morekeywords={A,B,C}
+}
+
+% Theorem Defintions
+\colorlet{shadecolor}{white}
+\newtheorem{thm}{Theorem}
+
+\newtheoremstyle{definitionsty}{15pt}{15pt}{\slshape}{}{\bfseries}{.}{.5em}{}
+\theoremstyle{definitionsty}
+\newtheorem{tdefn}{Definition}
+\newenvironment{defn}
+  {\begin{shaded}\begin{tdefn}}
+  {\end{tdefn}\end{shaded}}
+
 \usepackage{blindtext}
 
 \usepackage{fancyhdr}
@@ -69,16 +116,31 @@
 \maketitle
 
 \thispagestyle{fancy}
-\begin{center}
-    [Abstract]
-\end{center}
+\begin{abstract}
+  An Entity Component System, also known as an ECS, is the most important architectural design pattern in real time simulations and game development. By decoupling data from logic, ECS architectures excel at facilitating compositions of dynamic objects with good performance. The objective of this thesis is to propose a novel graph-based approach to integrating concurrency within ECS architectures.
+
+  The study first begins with an analysis of the traditional ECS paradigm, highlighting its strengths and weaknesses before continuing to the challenges introduced with concurrent execution in ECS architectures. The first chapter finishes by introducing the algorithms used to implement task-based parallelism and data parallelism.
+
+  The study first begins with an analysis of the traditional ECS paradigm, highlighting its strenghts and weaknesses before showing a naive example of an ECS. Then, dive into the nuances of three existing ECS implementations: FLECS, ecst, and anax. 
+
+  Chapter two introduces a novel hybrid graph-based concurrency model that uses the algorithms introduced. This ECS model aims to optimize for execution in general purpose scripting contexts of an ECS from physics calculations to player interactions. The remainder of this paper is implementation details and the results following from the code. Due to the nature of the subject, scientific journals regarding the topic are limited. However, articles and presentations of the topic from reputable organizations are availabile online.
+
+  Experimental results are **TDB**
+\end{abstract}
+
+
 \newpage
 
 \newpage
 \tableofcontents
 \newpage
 
-This is my project template for latex documents. It's pretty straightforward!
+\input{paper/ecs-paradigm}
+\input{paper/concurrency-overview}
+\input{paper/gecs}
+% \input{paper/benchmarks}
+% \input{paper/discussion}
+% \input{paper/conclusion}
 
 \printbibliography
 

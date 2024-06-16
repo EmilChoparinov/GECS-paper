@@ -1,0 +1,38 @@
+\section{Memory Allocators}
+\label{sec:memory-allocators}
+
+Because ECS systems are expected to withstand thousands of entities being added
+and deleted. We need an allocator that is capable of doing minimal memory 
+requests and distribute memory within userspace.
+
+\subsection{Arena Allocator}
+\label{subsec:arena-allocator}
+
+An arena allocator is an allocator that ensures all allocations are cheap 
+and allows for the utility of connecting object lifetimes to other allocated 
+objects. This means we no longer need to keep track of each items allocations
+individually and only need to free the arena when the time comes.
+
+\subsubsection{How does the arena handle mallocs?}
+Whenever a malloc occurs, the arena has a pointer to large contiguous piecees of
+memory and returns the next pointer with the amount required and increments the
+availability pointer.
+
+\subsubsection{What if we run out of memory?}
+If the arena fills up, it will request a new block of memory with the same size.
+The locations of these blocks are tracked with a hashmap in memory. So when the
+time comes to free, all are freed together. 
+
+\subsubsection{What if we attempt to allocate something larger than the block size?}
+In such a case the allocator will personally allocate a new region of that exact size.
+
+\subsection{How do we handle concurrency?}
+The way it works for now is with costly mutex locks. On any allocation event, 
+a thread must aquire the lock, do their job, and release.
+
+\subsection{Arena As Stack Allocator}
+\label{subsec:stack-allocator}
+
+A stack allocator is similar to an arena except the lifetime of the allocator is a the end of the stack frame. We can 
+simulate this easily by building on top of the arena allocator. Note: This has not been made yet because it may not be
+needed.
