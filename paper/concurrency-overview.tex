@@ -1,29 +1,35 @@
 % TODO: maybe add another section about how vectorization actually works in archetypes vs types?
 
 \section{Concurrency Model}
+\label{chap:2}
 The following concurrency model is of my own design. To the best of my ability I was unable to find a model like the one presented in this paper other than FLECS to a degree. Since our implementations follow similar techniques such as using archetypes and being a dense ECS, our concurrency models seem to overlap slightly but further investigation is needed.
 
 \subsection{Formal definition} \label{section:formal_definition}
 In this paper, we define an Entity Component System, short for ECS, to be a tuple $W = (T, A, \delta, \Lambda)$ consisting of:
 \begin{enumerate}
     \item A finite set of types $T$
-    \item A set of archetypes $A \subseteq \mathcal{P}(T) \cup \emptyset$, where $\mathcal{P}(T)$ denotes the power set of $T$    
+    \item A set of archetypes $A \subseteq \mathcal{P}(T)$, where $\mathcal{P}(T)$ denotes the power set of $T$    
     \item Some transition function $\delta : A \times T \rightarrow A$
     \item A set of systems $(\lambda, \lambda_{req}) \in \Lambda$ such that $\lambda : W \rightarrow W$ and $\lambda_{req} \subseteq \mathcal{P}(T)$ representing the types required to initiate $\lambda$
 \end{enumerate}
+This definition will be used in this chapter to generate the archetype graph.
 
 \subsection{Types And Archetypes}
-Until now, components were only stored in homogenous vectors which is great for cache locality but it introduces some problems -- namely with composite entities. We define a type $T$ to be the reference to a class of components. Therefore, a homogenous vector contains only components of type $T$.
+Until now, components were only stored in homogenous vectors which is great for cache locality and vectorizability but it introduces some problems -- namely with composite entities. We define a type $T$ to be the reference to a class of components. Therefore, a homogenous vector contains only components of type $T$.
+
+\subsection{Vectorization}
+Vectorization is a kind of data parallelism such that an operation is simultaneously applied to different segments of data. This is typically achieved via SIMD. Regardless, for the purpose of an ECS, vectorization means that the data needs to follow a strict standard of being contiguous in some manner. This is because of the convention that a system applies changes over components more than entities. By having archetypes be made out of components, and archetypes are able to generate a runtime Entity FSM, vectorization at the archetype level is possible. 
 
 \subsubsection{The ABC Problem}
 % https://ajmmertens.medium.com/building-an-ecs-2-archetypes-and-vectorization-fe21690805f9
-The ABC Problem is a problem introduced by the FLECS creator Sander Mertens. It's a problem that demonstrates the effectiveness of Archetypes in component storage and is a good introduction.
+The ABC Problem is a problem introduced by the FLECS creator Sander Mertens. It's a problem that demonstrates the effectiveness of Archetypes in component storage, it retains a vectorizable property, and is a good introduction to archetypes. 
 
-Outside of ECS world $W$, we define a set of entites $E$ and $n = |E|$. Suppose $T := \{A,B,C\}$ and for each type $t \in T$, there exists a homogenous vector containing elements of type $t$. If all entities have all the components then:
+Outside of ECS world $W$, suppose there exists a set of entites $E$ and $n = |E|$. Suppose $T := \{A,B,C\}$ and for each type $t \in T$, there exists a homogenous vector containing elements of type $t$. If all entities have all the components then:
 
 \begin{figure}[H]
     \begin{lstlisting}[
         language=Java,
+        numbers=none,
         style=colored
     ]
     A components[n];
@@ -34,11 +40,11 @@ Outside of ECS world $W$, we define a set of entites $E$ and $n = |E|$. Suppose 
     \label{code:homogenous_ecs}
 \end{figure}
 
-In this ideal world, entity ID can be emulated by the index to all vectors because the property $\forall t \in T : |t| = n$ holds. This ECS is positioned advantageously because the code is vectorizable and we can guarentee all components are contiguous in this design. 
+In this ideal world, entity ID can be emulated by the index to all vectors because the property $\forall t \in T : |t| = n$ holds. This ECS is positioned advantageously because all vectors are contiguous and therefore are vectorizable. This is only true because of the property mentioned.
 
-Suppose one of the entities at some index $k$ removes one of its components from component $t$. In such a situation, the defined indexing property is broken because not all vectors are of the same length and it is now impossible to write vectorized code for this ECS.
+Suppose one of the entities at some index $k$ removes some component $t$. In such a situation, the defined indexing property is broken because not all vectors are of the same length and the gap in memory now means it is impossible to write vectorized code for this ECS.
 
-Sander Mertens uses this setup to prove that an ECS cannot vectorize homogenous components at all. This is done by reviewing all situations in which homogenous components are unable to recover from runtime updates. By the end, he presents an alternative called archetypes and proves that archetypes leads to some form of good vectorizability.
+Sander Mertens uses this setup to prove that an ECS cannot vectorize homogenous components efficiently at all. This is done by reviewing all situations in which homogenous components are mutated to make vectorization impossible or difficult. By the end, he presents an alternative called archetypes and proves that archetypes leads to some form of good vectorizability.
 
 \subsubsection{Archetypes}
 Simply put, an archetype is a set of types as defined in section \ref{section:formal_definition}. Archetypes add a layer of abstraction on top of types so to make ECS queries vectorizable. Instead of creating homogenous vectors based on types in $T$, we can create homogenous vectors based on archetypes in $A$. 
@@ -46,14 +52,15 @@ Simply put, an archetype is a set of types as defined in section \ref{section:fo
 \begin{figure}[H]
     \begin{lstlisting}[
         language=Java,
+        numbers=none,
         style=colored
     ]
-    // Type {A}
+    // Type {A} "A"
     A a[A_len];
-    // Type {A, B}
+    // Type {A, B} "AB"
     A a[AB_len];
     B b[AB_len];
-    // Type {A, C}
+    // Type {A, C} "AC"
     A a[AC_len];
     C c[AC_len];
     \end{lstlisting}
@@ -63,11 +70,13 @@ Simply put, an archetype is a set of types as defined in section \ref{section:fo
 
 Even though in Figure \ref{code:ecs_archetypes} those arrays are independent they do not have to be. In my implementation, for example, all components in an archetype are interleaved in a contiguous array. So essentially the papers archetypes storage looks more similar to Figure \ref{code:homogenous_ecs} than Figure \ref{code:ecs_archetypes}.
 
+Note that since archetypes are sets of types, the archetypes $AB$ and $BA$ both represent the same archetype.
+
 \subsection{Representing Archetypes As An Entity Finite-State-Machine}
 \label{sec:fsm_arc}
 ECS applications are expected to handle operations over entities that can add, modify, or remove components. In the context of archetypes, this means being able to transition an entity between archetypes. 
 
-An example of such a situation is a game. Suppose all entities within the proximity of some point in space gain a tag component saying "buffed", but when they leave the proximity the tag component is removed. These types of state transitions may occur hundreds of times and need to be performant.
+An example of such a situation is a game. Suppose all entities within the proximity of some point in space gain a tag component saying "buffed", but when they leave the proximity the tag component is removed. These types of state transitions may occur hundreds of times and need to be performant. 
 
 \subsubsection{Archetype Graphs}
 
@@ -87,7 +96,7 @@ As an example, suppose we have an ECS with the following properties:
     \label{fig:graph1}
 \end{figure}
 
-As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the the archetype with no components. As components get added to entities over runtime, the entities shift their components to different vertices as their archetype changes, building out the graph.
+As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the the archetype with no components. As components get added to entities over their runtime, entities perform state transitions to their designated archetype. 
 
 Archetype graphs display the following properties:
 
@@ -97,18 +106,18 @@ Archetype graphs display the following properties:
     \item Archetypes can only appear once.
 \end{enumerate}
 
-There are a couple interesting things to notice in Figure \ref{fig:graph1}. Notice how there is no transition between state $[B,D]$ and $[D]$. This is because this graph represents a runtime of an ECS and not the complete graph of all possible transitions. 
+There are a couple interesting things to notice in Figure \ref{fig:graph1}. Notice how there is no transition between state $[B,D]$ and $[D]$. This is because this graph represents a runtime of an ECS and while it is possible to transition between $[B,D] \leftrightarrow [D]$, it has yet to happen in this runtime. 
 
-The component $C$ in Figure \ref{fig:graph1} is special in the regard that it is not adjacent to the $\emptyset$ vertex. This does not mean that it is impossible to create an entity with only $C$ but that the runtime has yet to have that situation occur.
+The component $C$ in Figure \ref{fig:graph1} is special in the regard that it is not adjacent to the $\emptyset$ vertex. This does not mean that it is impossible to create an entity with only component $C$ but that the runtime has yet to have that situation occur.
 
-To loop back to the proximity example in section \ref{sec:fsm_arc}, by representing archetypes as runtime state transitions we can now see that large performance gains are achieved via caching. Initially, for the first item in the simulation it will be slow because the edge between those two vertices must be made. Once that edge is made, it is cached and the deletion and transfer of an entity to another archetype drops from $O(N)$ to $O(1)$.
+To loop back to the proximity example in section \ref{sec:fsm_arc}, by representing archetypes as runtime state transitions we can now see that large performance gains are achieved via these edges. Initially, the first entity that transitions between two states in the simulation will be slow because the edge between those two vertices must be made. Once that edge is made, it is cached and the deletion and transfer of an entity to another archetype drops from $O(N)$ to $O(1)$.
 
 \subsubsection{Opertions On Entity FSM}
 The following operations are all thread safe due to the scheduling algorithm explained in section \ref{sec:scheduling}. All implementation details are abstracted away except the operations directly done on the graph. 
 
-\textbf{Entity Creation:} All entities when created start at the $\emptyset$ vertex. All entities that exist here are not queryable. In the papers implementation, the $\emptyset$ vertex is used as a garbage collection tool. All entities waiting for deletion are transitioned to the empty set and cleaned at the end of the tick. 
+\textbf{Entity Creation:} All entities when created start at the $\emptyset$ vertex. All entities that exist here are not queryable. In the papers implementation, the $\emptyset$ vertex is used as a garbage collection tool. All entities waiting for deletion are marked to transition to the empty set and cleaned at the end of the tick. 
 
-\textbf{Entity Component Addition: } Aside from the simple transition using an existing edge. When a component addition occurs two operations are completed. Suppose the archetype we are currently in is a set of types $G$ and are attempting to add component $C$. The two operations are the lookup operation and the connection operation.
+\textbf{Entity Component Addition: } Aside from the simple transition using an existing edge. When a component addition occurs, two operations are completed. Suppose the archetype we are currently in is at archetype $G$ and are attempting to add component $C$ to transition to $G \cup \{C\}$. The two operations presented are the lookup operation and the connection operation.
 
 \begin{enumerate}
     \item If $G \cup \{C\} \not\in A$, then do step 2. Else do step 3.
@@ -125,12 +134,12 @@ When considering concurrency, data invalidation can occur if the archetype to tr
 \subsection{Scheduling Systems}
 \label{sec:scheduling}
 
-Due to the nature of ECS architectures following some principles of data-oriented design, ECS architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule what is parallelizable and what is not parallelizable. This algorithm does not guarentee that all entities will run at the same time, but does guarentee that all entites will have been processed once per tick at some point in time. Such is the nature of concurrency. 
+Due to the nature of ECS patterns following some principles of data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule what is parallelizable and what is not parallelizable. This algorithm does not guarentee that all entities will run at the same time, but does guarentee that all entites will have been processed once per tick at some point in time. Such is the nature of concurrency. 
 
 \subsubsection{Syntax Introduction}
 For the following algorithms in section \ref{sec:scheduling}:
 
-\textbf{Partial Systems:} A partial system $\lambda'$ is defined as a system the processes a specific set of archetypes, instead of its requirements.
+\textbf{Partial Systems:} A partial system $\lambda^\prime$ is defined as a system that processes a specific set of archetypes, instead of its requirements. The following is the syntax definition:
 
 \begin{equation}
     \lambda^\prime := \{a_1,a_2,\ldots,a_n\} \in \mathcal{P}(A) : \lambda[a_1][a_2]\ldots[a_n]
@@ -140,34 +149,32 @@ For the following algorithms in section \ref{sec:scheduling}:
 \textbf{Set Symmetric Difference:} $\Delta$ used in the following algorithms is defined as the symmetric difference: 
 $$x_1 \Delta x_2 := (x \cup x_1) \setminus (x \cap x_1)$$
 
-\textbf{Threads:} The total threads allocated for the ECS is also defined as $t$. \\
-
 \subsubsection{Partitioning Algorithm}
 \label{alg:part}
 The following algorithm presented in the paper is used to determine what systems are parallelizable based on the entity FSM introduced in section \ref{sec:fsm_arc}. 
 
 \begin{enumerate}
-    \item Initiate sets $par$ and $seq$ that will contain data of type $\lambda^\prime$.
-    \item Initate a vector $v_1$ that will contain tuples $(\lambda \in \Lambda, x \subseteq A)$
-    \item For each $\lambda \in \Lambda$, we do the following steps 4-5:
-    \item Construct the set x such that $x = \{ \forall a \in A : a \cap \lambda_{req} \not= \emptyset \}$
+    \item Initiate sets $par, seq$ such that they will contain tuples of type $(\lambda^\prime)$
+    \item Initiate vector $v_1$ that will contain tuples of the type $(\lambda \in \Lambda, x \subseteq \mathcal{P}(A))$
+    \item For each $\lambda \in \Lambda$, do the following steps 4-5:
+    \item Construct the set $x = \{ \forall a \in A : a \cap \lambda_{req} \not= \emptyset \}$
     \item Push to $v_1$: $(\lambda, x)$
-    \item For each $(\lambda, x) \in v_1$, we do the following steps 7-10:
-    \item Calculate the set $X_{seq} = \{ \forall (\lambda_1, x_1) \in v_1, : x \cap x_1  \land x \not= x_1 \}$. $X$ contains all archetypes that $\lambda$ cannot do in parallel.
-    \item Calculate the set $X_{par} = \{ \forall (\lambda_1, x_1) \in v_1, : x \Delta x_1  \land x \not= x_1 \}$. $X$ contains all archetypes that $\lambda$ can do in parallel.
+    \item For each $(\lambda, x) \in v_1$, do the following steps:
+    \item Calculate the sequential set $X_{seq} = \{ (\lambda_1, x_1 \cap x ) : (\lambda_1, x_1) \in v_1 \land \lambda_1 \not= \lambda \}$. This set contains all archetypes that appear in $\lambda_1$ relative to $\lambda$.
+    \item Calculate the parallel set $X_{par} = \{ (\lambda_1, x_1 \setminus x ) : (\lambda_1, x_1) \in v_1 \land \lambda_1 \not= \lambda \}$. This set contains archetypes that are parallelizable relative to $\lambda$.
     \item Push to set $seq$ the value $ \forall x_0,x_1,\ldots,x_n \in X_{seq} : \lambda[x_0][x_1]\ldots[x_n]$
     \item Push to set $par$ the value $ \forall x_0,x_1,\ldots,x_n \in X_{par} : \lambda[x_0][x_1]\ldots[x_n]$
 \end{enumerate}
 
-After all the steps above, the sets $seq$ contains all archetypes that cannot be run in parallel and the set $par$ contains all archetypes that can be run in parallel.
+After all the steps above, the set $seq$ contains $\lambda^\prime$ that are archetype dependent on archetypes that appear in other $\lambda$'s that do not derive $\lambda^\prime$. This set is still partially parallelizable as will be shown in the scheduling algorithm and computation graph.
 
 Although the algorithm for partitioning in section \ref{alg:part} is $O(N^2)$ where $N$ is the number of archetypes, its unlikely that there will ever enough types of components and lazily loaded archetypes on the graph for it to matter in any circumstance, but it is important to still bring awareness.
 
 % TODO: ACTUALLY DO IT
 Depending on the leniency of defining $\lambda_{req}$, its possible to only ever have to do this calculation once. If all systems are defined at compile time and new systems are not allowed to be added during runtime, the computation graph will never change. The implementation in this paper allows new systems to be defined at runtime and only needs to recalculate on new archetype additions to the Entity FSM.
 
-\subsubsection{Example Run}
-To show this algorithm in process, the following uses Figure \ref{fig:graph1} as an example to go through. Suppose instead of $\Lambda = \emptyset$:
+\subsubsection{Example Computation}
+The following section is dedicated to producing the $seq$ and $par$ sets based on the entity FSM in Figure \ref{fig:graph1}. Suppose instead of $\Lambda = \emptyset$:
 
 \begin{equation*}
 \Lambda = \begin{cases}
@@ -177,31 +184,83 @@ To show this algorithm in process, the following uses Figure \ref{fig:graph1} as
 \end{cases}
 \end{equation*}
 
-Following through with steps 1-4, the vector $v_1$ will contain the following:
+
+\textbf{Vector Production:} The first step is generating the $v_1$ vector.
+
+\begin{align*}
+    v_1[\lambda_1] &= \{ \forall a \in A : a \cup [A,C] \neq \emptyset \} & \Rightarrow &
+    \quad v_1[\lambda_1] = \{[A],[AC],[AB],[ABC]\} \\
+    v_1[\lambda_2] &= \{ \forall a \in A : a \cup [B,C] \neq \emptyset \} & \Rightarrow &
+    \quad v_1[\lambda_2] = \{[B],[AB],[AC],[BD],[ABC]\} \\
+    v_1[\lambda_3] &= \{ \forall a \in A : a \cup [D] \neq \emptyset \} & \Rightarrow &
+    \quad v_1[\lambda_3] = \{[D],[BD]\}
+\end{align*}
+
+\textbf{Sequential Set:} The next step is to generate the set $X_{seq}$ for each set in $v_1$.
+
+\begin{align*}
+    \lambda_1: \quad & X_{seq} = \{v_1[\lambda_1] \cap v_1[\lambda_2], v_1[\lambda_1] \cap v_1[\lambda_3]\} & \Rightarrow & \quad X_{seq} = \{[AC][AB][ABC],[]\} \\ 
+    \lambda_2: \quad & X_{seq} = \{v_1[\lambda_2] \cap v_1[\lambda_1], v_1[\lambda_2] \cap v_1[\lambda_3]\} & \Rightarrow & \quad X_{seq} = \{[AC][AB][ABC],[BD]\} \\ 
+    \lambda_3: \quad & X_{seq} = \{v_1[\lambda_3] \cap v_1[\lambda_1], v_1[\lambda_3] \cap v_1[\lambda_2]\} & \Rightarrow & \quad X_{seq} = \{[],[BD]\} \\ 
+\end{align*}
+
+\textbf{Parallel Set:} With $v_1$ and $X_{seq}$ generated, apply to each context of $X_{seq}$ above the formula to generate $X_{par}$.
+\begin{align*}
+    \lambda_1: \quad & X_{par} = \{v_1[\lambda_1] \setminus v_1[\lambda_2], v_1[\lambda_1] \setminus v_1[\lambda_3]\} & \Rightarrow & \quad X_{par} = \{[A],[A][AC][AB][ABC]\} \\ 
+    \lambda_2: \quad & X_{par} = \{v_1[\lambda_2] \setminus v_1[\lambda_1], v_1[\lambda_2] \setminus v_1[\lambda_3]\} & \Rightarrow & \quad X_{par} = \{[AC][AB][ABC],[BD]\} \\ 
+    \lambda_3: \quad & X_{par} = \{v_1[\lambda_3] \setminus v_1[\lambda_1], v_1[\lambda_3] \setminus v_1[\lambda_2]\} & \Rightarrow & \quad X_{par} = \{[],[BD]\} \\ 
+\end{align*}
+
+\textbf{Construct Sequential Partial Functions}: With the $X_{seq}$ generated, apply the transformation into $seq$:
+\begin{align*}
+    \lambda_1: \quad & X_{\text{seq}}[0]  \Rightarrow \quad \lambda_1^\prime[AC][AB][ABC] \\
+                     & X_{\text{seq}}[1]  \Rightarrow \quad \lambda_1^\prime[] \\ 
+    \\[0.3em]
+    \lambda_2: \quad & X_{\text{seq}}[0]  \Rightarrow \quad \lambda_2^\prime[AC][AB][ABC] \\
+                     & X_{\text{seq}}[1]  \Rightarrow \quad \lambda_2^\prime[BD] \\
+    \\[0.3em]
+    \lambda_3: \quad & X_{\text{seq}}[0]  \Rightarrow \quad \lambda_3^\prime[] \\
+                     & X_{\text{seq}}[1]  \Rightarrow \quad \lambda_3^\prime[BD]
+\end{align*}
+
+Note how $\lambda_1^\prime$ and $\lambda_3^\prime$ contain partials with empty archetypes. Although these archetypes are valid, since $\emptyset \in \mathcal{P}(T)$, they do nothing so implementation wise they are unimportant. Using this computation, the following is the set $seq$.
 
 $$
-v_1 = \left[
+\text{seq} = \left\{
 \begin{array}{@{}l@{}}
-(\lambda_1, \{[A],[A,B],[A,C],[A,B,C]\}) \\
-(\lambda_2, \{[B],[A,B],[B,D],[A,C],[A,B,C]\})\\
-(\lambda_3, \{[D],[B,D]\})
+    \lambda_1^\prime[\text{AC}][\text{AB}][\text{ABC}] \\ 
+    \lambda_2^\prime[\text{AC}][\text{AB}][\text{ABC}], \lambda_2^\prime[\text{BD}] \\
+    \lambda_3^\prime[\text{BD}]
 \end{array}
-\right]
+\right\}
 $$
 
-Now to step 6, where we calculate for each $(\lambda, x) \in v_1$ the parallel and not parallelizable sets. For brevity I will only show the process for $\lambda_2$ and show the final results of this step for all systems:
-
-To calculate the non-parallelizable set for $\lambda_2$ we do the following:
+\textbf{Construct Parallel Partial Functions}: With the $X_{par}$ generated, apply the transformation to $par$:
 \begin{align*}
-\lambda_2 \cap \lambda_1 &= \{[A,C],[A,B],[A,B,C]\} \\
-\lambda_2 \cap \lambda_3 &= \{[B,D]\}    
+    \lambda_1: \quad & X_{\text{par}}[0]  \Rightarrow \quad \lambda_1^\prime[A] \\
+                     & X_{\text{par}}[1]  \Rightarrow \quad \lambda_1^\prime[A][AC][AB][ABC] \\ 
+    \\[0.3em]
+    \lambda_2: \quad & X_{\text{par}}[0]  \Rightarrow \quad \lambda_2^\prime[B] \\
+                     & X_{\text{par}}[1]  \Rightarrow \quad \lambda_2^\prime[B][AB][ABC][AC] \\
+    \\[0.3em]
+    \lambda_3: \quad & X_{\text{par}}[0]  \Rightarrow \quad \lambda_3^\prime[D][BD] \\
+                     & X_{\text{par}}[1]  \Rightarrow \quad \lambda_3^\prime[D]
 \end{align*}
 
-To calculate the parallelizable set for $\lambda_2$ we do the following:
-\begin{align*}
-\lambda_2 \Delta \lambda_1 &= \{[A]\} \\    
-\lambda_2 \Delta \lambda_3 &= \{[D]\}    
-\end{align*}
+Note how $|\lambda_1:X_{seq}[1]| = |v_1[\lambda_1]|$. The fact that they are the same length means to us that with respect to $\lambda_3$, $\lambda_1$ is completely parallelizable. Finally, the set $par$ is:
+
+$$
+\text{par} = \left\{
+\begin{array}{@{}l@{}}
+    \lambda_1^\prime[\text{A}] \quad \lambda_1^\prime[\text{A}][\text{AC}][\text{AB}][\text{ABC}] \\ 
+    \lambda_2^\prime[\text{B}] \quad \lambda_2^\prime[\text{B}][\text{AB}][\text{ABC}][\text{AC}] \\
+    \lambda_3^\prime[\text{D}] \quad \lambda_3^\prime[\text{D}][\text{BD}]
+\end{array}
+\right\}
+$$
+
+\subsubsection{Scheduling Algorithm}
+The two sets from the partitioning algorithm is all we need to schedule one tick.
 
 
 \subsubsection{Computation Graphs}

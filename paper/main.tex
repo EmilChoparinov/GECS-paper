@@ -117,17 +117,18 @@
 
 \thispagestyle{fancy}
 \begin{abstract}
-  An Entity Component System, also known as an ECS, is the most important architectural design pattern in real time simulations and game development. By decoupling data from logic, ECS architectures excel at facilitating compositions of dynamic objects with good performance. The objective of this thesis is to propose a novel graph-based approach to integrating concurrency within ECS architectures.
+  The Entity Component System, also known widely as ECS, is the most important architectural design pattern for realtime simulations. By decoupling data from logic, ECS architectures uniquely excel at faciliting compositions of dynamic objects. The objective of this thesis is split into four parts. 
 
-  The study first begins with an analysis of the traditional ECS paradigm, highlighting its strengths and weaknesses before continuing to the challenges introduced with concurrent execution in ECS architectures. The first chapter finishes by introducing the algorithms used to implement task-based parallelism and data parallelism.
+  The study begines with an introduction and literature review of the ECS pattern, highlighting its strengths and weaknesses, and includes the motivation as to why to use an ECS over Object-Oriented Programming in realtime simulation contexts. The paper will then move on to a review of the implementation styles noticed while researching various real-world ECS implementations. Chapter \ref{chap:1} concludes with touching broadly on the concurrency styles those real-world ECS's used in their implementations.
+  
+  Chapter \ref{chap:2} is dedicated to the concurrency techniques used in the GECS library, the ECS implemented for this paper. The introduction begins by discussing the topic of vectorization and rethinking about components as types and archetypes. It then explores using archetypes to construct a runtime entity finite-state-machine (FSM) to aid in scheduling the ECS in concurrent contexts. Before wrapping up the chapter, it touches on how to retain validity of the entity FSM over runtime.
+  
+  Chapter \ref{chap:3} finally introduces the GECS library implemented for this paper. This chapter covers all topics related to implementation details to data layout and the structures used. Preserving the vectorizability of archetypes and the concurrency implementation are explained in greatest detail. The remainder of this paper is benchmarking and discussions of the results following from implementing GECS. 
 
-  The study first begins with an analysis of the traditional ECS paradigm, highlighting its strenghts and weaknesses before showing a naive example of an ECS. Then, dive into the nuances of three existing ECS implementations: FLECS, ecst, and anax. 
-
-  Chapter two introduces a novel hybrid graph-based concurrency model that uses the algorithms introduced. This ECS model aims to optimize for execution in general purpose scripting contexts of an ECS from physics calculations to player interactions. The remainder of this paper is implementation details and the results following from the code. Due to the nature of the subject, scientific journals regarding the topic are limited. However, articles and presentations of the topic from reputable organizations are availabile online.
+  GECS aims to optimize for execution in general purpose scripting contexts from performing physics calculations to facilitating user interactions. It's important to note before reading futher on that due to the nature of this subject, scientific journals regarding this topic is limited. However, articles about designing ECS architectures and presentations are widely availabile online from reputable organizations.
 
   Experimental results are **TDB**
 \end{abstract}
-
 
 \newpage
 
