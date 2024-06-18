@@ -6,22 +6,20 @@ Historically, realtime interactive systems like simulations and game development
 \subsection{Entity Component System Foundations}
 These are the foundational definitions used in this paper.
 
-\begin{tdefn}[Entity]
+\subsubsection{Entity}
     An entity is a unique identifier used to represent a "thing" in the simulation. This unique identifier is used in some manner by the ECS to collect a set of components. Some ECS's try to make the identifier intelligent to optimize component selection by using the bytes in an integer to store more location information. This will be discussed in the existing ECS implementions.
-\end{tdefn}
-\begin{tdefn}[Component]
-    Generally speaking, a component is data. It can be defined as a struct, tuple, or class. For this thesis, we define a component to only be a segment of either complete or incomplete data.
-\end{tdefn}
-\begin{tdefn}[Tag]
-    A tag is a component such that it contains 0 information other than its existence.
-\end{tdefn}
-\begin{tdefn}[System]
-    A system has two parts. First the query and second the execution. A system queries for a collection of components and then executes a function that can modifies, create, or destroy entities or components.
-\end{tdefn}
-\begin{tdefn}[Tick]
-    A tick is defined to be a point during runtime in which all systems have been processed and the ECS is ready to process them all again. A tick is the serialization point of a concurrent ECS architecture.
-\end{tdefn}
 
+\subsubsection{Component}
+    Generally speaking, a component is data. It can be defined as a struct, tuple, or class. For this thesis, we define a component to only be a segment of either complete or incomplete data.
+
+\subsubsection{Tag}
+    A tag is a component such that it contains 0 information other than its existence.
+
+\subsubsection{System}
+    A system has two parts. First the query and second the execution. A system queries for a collection of components and then executes a function that can modifies, create, or destroy entities or components.
+
+\subsubsection{Tick}
+    A tick is defined to be a point during runtime in which all systems have been processed and the ECS is ready to process them all again. A tick is the serialization point of a concurrent ECS architecture.
 
 \noindent The paper will build upon these four concepts and introduce new definitions based on these.
 
