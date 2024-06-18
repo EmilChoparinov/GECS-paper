@@ -134,200 +134,71 @@ When considering concurrency, data invalidation can occur if the archetype to tr
 \subsection{Scheduling Systems}
 \label{sec:scheduling}
 
-Due to the nature of ECS patterns following some principles of data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule what is parallelizable and what is not parallelizable. This algorithm does not guarentee that all entities will run at the same time, but does guarentee that all entites will have been processed once per tick at some point in time. Such is the nature of concurrency. 
-
-\subsubsection{Syntax Introduction}
-For the following algorithms in section \ref{sec:scheduling}:
-
-\textbf{Partial Systems:} A partial system $\lambda^\prime$ is defined as a system that processes a specific set of archetypes, instead of its requirements. The following is the syntax definition:
-
-\begin{equation}
-    \lambda^\prime := \{a_1,a_2,\ldots,a_n\} \in \mathcal{P}(A) : \lambda[a_1][a_2]\ldots[a_n]
-    \label{eq:partial_lambda}
-\end{equation}
-
-\textbf{Set Symmetric Difference:} $\Delta$ used in the following algorithms is defined as the symmetric difference: 
-$$x_1 \Delta x_2 := (x \cup x_1) \setminus (x \cap x_1)$$
-
-\subsubsection{Partitioning Algorithm}
-\label{alg:part}
-The following algorithm presented in the paper is used to determine what systems are parallelizable based on the entity FSM introduced in section \ref{sec:fsm_arc}. 
-
-\begin{enumerate}
-    \item Initiate sets $par, seq$ such that they will contain tuples of type $(\lambda^\prime)$
-    \item Initiate vector $v_1$ that will contain tuples of the type $(\lambda \in \Lambda, x \subseteq \mathcal{P}(A))$
-    \item For each $\lambda \in \Lambda$, do the following steps 4-5:
-    \item Construct the set $x = \{ \forall a \in A : a \cap \lambda_{req} \not= \emptyset \}$
-    \item Push to $v_1$: $(\lambda, x)$
-    \item For each $(\lambda, x) \in v_1$, do the following steps:
-    \item Calculate the sequential set $X_{seq} = \{ (\lambda_1, x_1 \cap x ) : (\lambda_1, x_1) \in v_1 \land \lambda_1 \not= \lambda \}$. This set contains all archetypes that appear in $\lambda_1$ relative to $\lambda$.
-    \item Calculate the parallel set $X_{par} = \{ (\lambda_1, x_1 \setminus x ) : (\lambda_1, x_1) \in v_1 \land \lambda_1 \not= \lambda \}$. This set contains archetypes that are parallelizable relative to $\lambda$.
-    \item Push to set $seq$ the value $ \forall x_0,x_1,\ldots,x_n \in X_{seq} : \lambda[x_0][x_1]\ldots[x_n]$
-    \item Push to set $par$ the value $ \forall x_0,x_1,\ldots,x_n \in X_{par} : \lambda[x_0][x_1]\ldots[x_n]$
-\end{enumerate}
-
-After all the steps above, the set $seq$ contains $\lambda^\prime$ that are archetype dependent on archetypes that appear in other $\lambda$'s that do not derive $\lambda^\prime$. This set is still partially parallelizable as will be shown in the scheduling algorithm and computation graph.
-
-Although the algorithm for partitioning in section \ref{alg:part} is $O(N^2)$ where $N$ is the number of archetypes, its unlikely that there will ever enough types of components and lazily loaded archetypes on the graph for it to matter in any circumstance, but it is important to still bring awareness.
-
-% TODO: ACTUALLY DO IT
-Depending on the leniency of defining $\lambda_{req}$, its possible to only ever have to do this calculation once. If all systems are defined at compile time and new systems are not allowed to be added during runtime, the computation graph will never change. The implementation in this paper allows new systems to be defined at runtime and only needs to recalculate on new archetype additions to the Entity FSM.
-
-\subsubsection{Example Computation}
-The following section is dedicated to producing the $seq$ and $par$ sets based on the entity FSM in Figure \ref{fig:graph1}. Suppose instead of $\Lambda = \emptyset$:
-
-\begin{equation*}
-\Lambda = \begin{cases}
-    \lambda_1 &= [A,C] \\
-    \lambda_2 &= [B,C] \\ 
-    \lambda_3 &= [D]    
-\end{cases}
-\end{equation*}
-
-
-\textbf{Vector Production:} The first step is generating the $v_1$ vector.
-
-\begin{align*}
-    v_1[\lambda_1] &= \{ \forall a \in A : a \cup [A,C] \neq \emptyset \} & \Rightarrow &
-    \quad v_1[\lambda_1] = \{[A],[AC],[AB],[ABC]\} \\
-    v_1[\lambda_2] &= \{ \forall a \in A : a \cup [B,C] \neq \emptyset \} & \Rightarrow &
-    \quad v_1[\lambda_2] = \{[B],[AB],[AC],[BD],[ABC]\} \\
-    v_1[\lambda_3] &= \{ \forall a \in A : a \cup [D] \neq \emptyset \} & \Rightarrow &
-    \quad v_1[\lambda_3] = \{[D],[BD]\}
-\end{align*}
-
-\textbf{Sequential Set:} The next step is to generate the set $X_{seq}$ for each set in $v_1$.
-
-\begin{align*}
-    \lambda_1: \quad & X_{seq} = \{v_1[\lambda_1] \cap v_1[\lambda_2], v_1[\lambda_1] \cap v_1[\lambda_3]\} & \Rightarrow & \quad X_{seq} = \{[AC][AB][ABC],[]\} \\ 
-    \lambda_2: \quad & X_{seq} = \{v_1[\lambda_2] \cap v_1[\lambda_1], v_1[\lambda_2] \cap v_1[\lambda_3]\} & \Rightarrow & \quad X_{seq} = \{[AC][AB][ABC],[BD]\} \\ 
-    \lambda_3: \quad & X_{seq} = \{v_1[\lambda_3] \cap v_1[\lambda_1], v_1[\lambda_3] \cap v_1[\lambda_2]\} & \Rightarrow & \quad X_{seq} = \{[],[BD]\} \\ 
-\end{align*}
-
-\textbf{Parallel Set:} With $v_1$ and $X_{seq}$ generated, apply to each context of $X_{seq}$ above the formula to generate $X_{par}$.
-\begin{align*}
-    \lambda_1: \quad & X_{par} = \{v_1[\lambda_1] \setminus v_1[\lambda_2], v_1[\lambda_1] \setminus v_1[\lambda_3]\} & \Rightarrow & \quad X_{par} = \{[A],[A][AC][AB][ABC]\} \\ 
-    \lambda_2: \quad & X_{par} = \{v_1[\lambda_2] \setminus v_1[\lambda_1], v_1[\lambda_2] \setminus v_1[\lambda_3]\} & \Rightarrow & \quad X_{par} = \{[AC][AB][ABC],[BD]\} \\ 
-    \lambda_3: \quad & X_{par} = \{v_1[\lambda_3] \setminus v_1[\lambda_1], v_1[\lambda_3] \setminus v_1[\lambda_2]\} & \Rightarrow & \quad X_{par} = \{[],[BD]\} \\ 
-\end{align*}
-
-\textbf{Construct Sequential Partial Functions}: With the $X_{seq}$ generated, apply the transformation into $seq$:
-\begin{align*}
-    \lambda_1: \quad & X_{\text{seq}}[0]  \Rightarrow \quad \lambda_1^\prime[AC][AB][ABC] \\
-                     & X_{\text{seq}}[1]  \Rightarrow \quad \lambda_1^\prime[] \\ 
-    \\[0.3em]
-    \lambda_2: \quad & X_{\text{seq}}[0]  \Rightarrow \quad \lambda_2^\prime[AC][AB][ABC] \\
-                     & X_{\text{seq}}[1]  \Rightarrow \quad \lambda_2^\prime[BD] \\
-    \\[0.3em]
-    \lambda_3: \quad & X_{\text{seq}}[0]  \Rightarrow \quad \lambda_3^\prime[] \\
-                     & X_{\text{seq}}[1]  \Rightarrow \quad \lambda_3^\prime[BD]
-\end{align*}
-
-Note how $\lambda_1^\prime$ and $\lambda_3^\prime$ contain partials with empty archetypes. Although these archetypes are valid, since $\emptyset \in \mathcal{P}(T)$, they do nothing so implementation wise they are unimportant. Using this computation, the following is the set $seq$.
-
-$$
-\text{seq} = \left\{
-\begin{array}{@{}l@{}}
-    \lambda_1^\prime[\text{AC}][\text{AB}][\text{ABC}] \\ 
-    \lambda_2^\prime[\text{AC}][\text{AB}][\text{ABC}], \lambda_2^\prime[\text{BD}] \\
-    \lambda_3^\prime[\text{BD}]
-\end{array}
-\right\}
-$$
-
-\textbf{Construct Parallel Partial Functions}: With the $X_{par}$ generated, apply the transformation to $par$:
-\begin{align*}
-    \lambda_1: \quad & X_{\text{par}}[0]  \Rightarrow \quad \lambda_1^\prime[A] \\
-                     & X_{\text{par}}[1]  \Rightarrow \quad \lambda_1^\prime[A][AC][AB][ABC] \\ 
-    \\[0.3em]
-    \lambda_2: \quad & X_{\text{par}}[0]  \Rightarrow \quad \lambda_2^\prime[B] \\
-                     & X_{\text{par}}[1]  \Rightarrow \quad \lambda_2^\prime[B][AB][ABC][AC] \\
-    \\[0.3em]
-    \lambda_3: \quad & X_{\text{par}}[0]  \Rightarrow \quad \lambda_3^\prime[D][BD] \\
-                     & X_{\text{par}}[1]  \Rightarrow \quad \lambda_3^\prime[D]
-\end{align*}
-
-Note how $|\lambda_1:X_{seq}[1]| = |v_1[\lambda_1]|$. The fact that they are the same length means to us that with respect to $\lambda_3$, $\lambda_1$ is completely parallelizable. Finally, the set $par$ is:
-
-$$
-\text{par} = \left\{
-\begin{array}{@{}l@{}}
-    \lambda_1^\prime[\text{A}] \quad \lambda_1^\prime[\text{A}][\text{AC}][\text{AB}][\text{ABC}] \\ 
-    \lambda_2^\prime[\text{B}] \quad \lambda_2^\prime[\text{B}][\text{AB}][\text{ABC}][\text{AC}] \\
-    \lambda_3^\prime[\text{D}] \quad \lambda_3^\prime[\text{D}][\text{BD}]
-\end{array}
-\right\}
-$$
+Due to the nature of ECS patterns following some principles of data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system all at once and be processed at once. Entities may be sent to the system in seemingly random orders. 
 
 \subsubsection{Scheduling Algorithm}
-The two sets from the partitioning algorithm is all we need to schedule one tick.
+The scheduling algorithm is simple. Since the entities components are currently organized into archetypes, the only points of contention are those archetypes themselves. The algorithm goes as follows:
 
+\begin{enumerate}
+    \item For each $\lambda \in \Lambda$, do the following steps 2-3:
+    \item Construct the set $x = \{\forall a \in A : a \cap \lambda_{req} \not= \emptyset\}$.
+    \item For each archetype in set $x$, mark that archetype.
+    \item Schedule a unique thread for all archetypes.
+    \item For each thread, run each system that marked this archetype.
+\end{enumerate}
 
-\subsubsection{Computation Graphs}
-Now with $par$ and $seq$, we are able to generate the computation graph for the systems. We sequentially process all partials in $seq$ first, and then spin up threads for each system. 
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.5\linewidth]{resources/computation_graph.png}
-    \caption{Temp Graph To Replace Later with Latex}
-    \label{fig:temp1}
-\end{figure}
-
-There is a visual way to understand this algorithm. A BFS can be initiated from all starting types from the given $\lambda_{req}$ to capture the vertices in $v_1$. Then we color each vertex set with unique colors. 
+\textbf{Example:} The following is an example graph marked based on the algorithm above.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.5\linewidth]{resources/color_graph.png}
-    \caption{Temp Graph To Replace Later with Latex}
+    \includegraphics[width=0.5\linewidth]{resources/graph2.png}
+    \caption{Example of a Scheduled Entity FSM Graph}
     \label{fig:graph2}
 \end{figure}
 
-In Figure \ref{fig:graph2}, notice that all nonoverlapping colors are safe to multithread while all overlapped colors ended up in the sequential part of the computation graph.
+The ECS in Figure \ref{fig:graph2} contains four systems: 
 
-\subsubsection{Scheduling Systems}
-Now to finally scheduling the systems. Because of the hard work done in section \ref{alg:part}, the set $seq$ can just run sequentially so that will be ignored and processed on the main thread. Once those are done, we assign for each partial system $\lambda^\prime \in par$ to the next available thread in the thread pool. 
+\begin{equation*}
+    \Lambda = \begin{cases}
+        \lambda_1 &= [A,C] \\
+        \lambda_2 &= [B,C] \\ 
+        \lambda_3 &= [A] \\ 
+        \lambda_4 &= [D] \\ 
+    \end{cases}
+\end{equation*}
+
+Notice how on any archetype vertex in this graph when there are multiple colors this signifies data contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implemention does provide support for embarassingly parallel access patterns. 
 
 \subsection{Entity Consolidation}
-A key concept omitted thus far is how entities interact with the Entity FSM in concurrent contexts. There are three things in which an entity can do:
+A key concept has been omitted thus far and that is entity consolidation. How, with these systems running concurrently, are entities transitioned between archetypes? It turns out, unlike entity modification which can be handled in parallel, component addition and deletion cannot be handled in any parallel contexts. The following sections contain a proof made for this paper and two workarounds are suggested.
+
+\subsubsection{Entity Creation/Deletion Operations Leads To Tick Non-determinism}
+\label{sec:proof1}
+Suppose there exists two systems, systems A and B. The purpose of System A is to generate entities containing Component C and the purpose of System B is to consume entities that contain component C. In such an ECS runtime, that means entities are generated and transitioned to archetype $\{C\}$. Therefore the length of $\{C\}$ changes during the process of a tick. 
+
+There are three cases in which System A and B interact:
 \begin{enumerate}
-    \item Add a component and transition to a vertex not dependent on other concurrently running systems. 
-    \item Add a component and transition to a vertex dependent on other concurrently running systems. 
-    \item Move to $\emptyset$.
+    \item System A generates entities faster than B consumes
+    \item System A generates entities at the same rate B consumes
+    \item System A generates entities slower than B consumes
 \end{enumerate}
 
-\subsubsection{$\delta$ Transition To Non-Dependent System}
-This case handled by the partitioning algorithm. Each entity, while running in the concurrent context, cannot appear twice in the same concurrent context. Entities can appear multiple times but never more than once while in the concurrent context. This is because archetypes organize entities and archetypes are what defines a partial system. 
+Only in case 3 can the next tick occur. The nondeterminism introduced by allowing entity list mutations can cause program stalls such as in the manner proposed. And also in the context of a concurrent ECS, this can lead to deadlocks and livelocks.
 
-\subsubsection{$\delta$ Transition To Dependent System}
-% TODO: ACTUALLY DO THIS
-This case can be handled in various ways. The easiest way is to add a constraint to $\lambda$ stating that operations such as these are invalid and must be included in the $\lambda_{req}$ set. The method this papers implementation chose is to have a local ledger of conflicting changes stored at the starting vertex. By doing this, we ensure that all concurrent systems finish with the same set of entities they deterministically started out on. Before the end of each tick, the ledgers of all vertices will be wipes and all entities with their accompanying data will be transfered to where they belong.
+\subsubsection{Serializability And Ledger-Based Consolidation}
+In order to solve the problem of entity consolidation in any context we must fix the entity list. That means for each tick, no matter the deletion or additions performed, the entity set must stay the same until the tick is complete. As such, even if we perform perfect concurrent entity consolidation, the effort is still wasted. If the list of entities can only be mutated after the serialization point, then doing early consolidation is as if it was done now since only now can the affects of entity consolidation be seen. 
 
-The ledger is defined as a map between entity ids and a queue of archetypes. If the entity wishes to transition to an archetype that is running concurrently, the entity will push the archetype to the queue. The full algorithm is detailed below:
+The GECS implementation proposes to use a ledger-based consolidation technique that caches mutation operations done on the entity list and applies these operations in order after the serialization point.
 
+\subsubsection{Alternative To Ledger-Based Consolidation}
+An alternative to the implementation GECS proposed is to add a constraint to $\lambda_{req}$ such that operations done where the queried archetype $a \not\subseteq \lambda_{req}$ makes them invalid. By doing so, it ensures that $\lambda$ will be scheduled by the scheduler to process $a$. 
 
-\textbf{On Component Add:}
-\begin{enumerate}
-    \item An entity $e$ has requested for it to move from archetype $A$ to archetype $B$.
-    \item Check if entity exists in the ledger. If so, go to step 3. Else, skip.
-    \item Enqueue to entity $e$ archetype $B$. Done.
-    \item Check if archetype $B$ belongs to another concurrent system. If so, go to step 3. Else, skip.
-    \item Transition entity $e$'s archetype to $B$. Done.
-\end{enumerate}
-
-\textbf{On Archetype Move:}
-\begin{enumerate}
-    \item For each $a \in A$, do the following steps:
-    \item For each $(e, q) \in a$ where $e$ is the entity and $q$ is the queue of types to apply.
-    \item While $q$ is not empty, dequeue into $q^\prime$. If empty, Go to step 6.
-    \item Transition entity $e$'s archetype to $q^\prime$.
-    \item Go to step 2.
-    \item Done.
-\end{enumerate}
-
-It's important to note that in such scenarios it's not only the new archetype that get's queue'd but the new component as well. The user must be able to dynamically construct and use these components while they are on the ledger unmoved. My implementation handles this.
+This provides the unique opportunity that whenever working in the context of archetype $a$, all requests to create entities with archetype $a$ will be processed and all other requests ignored. In some ways, this alternative is more elegant than what GECS implemented. But this thought came too late in development and has some drawbacks. Mainly, having to know the set of components the system depends on before the system gets scheduled.
 
 \subsubsection{$\delta$ Transition To $\emptyset$}
-This case is the deletion case and is handled using the same ledger in case 2. We push onto the ledger $(e \in E, \emptyset)$. Before the end of the tick, we iterate and clean out all entities that are supposed to transition to $\emptyset$. All that needs to be done is iterate through the ledger, and delete those entities. 
+This case can only exist in ledger-based consolidation. Since in the alternative the system is guarenteed to run on the archetype set of a queried entity, deletion is a simple thread-safe operation. All deletion requests of entities that are not of the current archetype are ignored and deletion requests of the current archetype are accepted.
+
+In the case of using the ledger. We must push onto the ledger that this entity is to be deleted. Before the end of the tick, we iterate and clean out all entities that are supposed to transition to $\emptyset$. 
 
 \subsection{Parallel Processing Internal Archetypes}
 There are many cases in realtime interactive systems where data is embarassingly parallel. It would be nice if there was a way for us to support embarassingly parallel operations within the ECS. An common example of an embarassingly parallel system in an ECS is applying gravity to a set of objects. Calculating the next position of an entity is an isolated operation than can be divided up to threads since there is zero data dependencies. Luckily for us, archetypes are setup to be vectorizable and requires no need of synchronizations. Therefore we can just chunk out the vector evenly to threads that are available in the thread pool.

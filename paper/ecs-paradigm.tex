@@ -18,6 +18,11 @@ These are the foundational definitions used in this paper.
 \begin{tdefn}[System]
     A system has two parts. First the query and second the execution. A system queries for a collection of components and then executes a function that can modifies, create, or destroy entities or components.
 \end{tdefn}
+\begin{tdefn}[Tick]
+    A tick is defined to be a point during runtime in which all systems have been processed and the ECS is ready to process them all again. A tick is the serialization point of a concurrent ECS architecture.
+\end{tdefn}
+
+
 \noindent The paper will build upon these four concepts and introduce new definitions based on these.
 
 \subsection{The Weaknessess Of Object Oriented Programming}
