@@ -59,26 +59,27 @@
 
 % Code definition
 \lstset{
-  aboveskip=1em,
-  breaklines=true,
-  abovecaptionskip=-6pt,
-  captionpos=b,
-  frame=single,
-  numbers=left,
-  numbersep=15pt,
-  numberstyle=\small,
-  showstringspaces=false
+    language=C,
+    aboveskip=3mm,
+    belowskip=3mm,
+    showstringspaces=false,
+    columns=flexible,
+    numbers=left,
+    numbersep=10pt,
+    keywordstyle=\color{black}\bfseries,
+    breaklines=true,
+    breakatwhitespace=true,
+    mathescape=true,
+    tabsize=3,
+    xleftmargin=2em
 }
 
-
-% Code color theme definition
-\lstdefinestyle{colored}{ %
-  basicstyle=\ttfamily,
-  backgroundcolor=\color{white},
-  commentstyle=\color{darkgreen},
-  keywordstyle=\color{blue}\bfseries\itshape,
-  stringstyle=\color{red},
-  morekeywords={A,B,C}
+\newcommand{\dcode}[1]{
+    \begin{center}
+    \begin{minipage}{0.8\textwidth}
+    \lstinputlisting[style=centeredblack]{#1}
+    \end{minipage}
+    \end{center}
 }
 
 % Theorem Defintions
@@ -117,17 +118,30 @@
 
 \thispagestyle{fancy}
 \begin{abstract}
-  The Entity Component System, also known widely as ECS, is the most important architectural design pattern for realtime simulations. By decoupling data from logic, ECS architectures uniquely excel at faciliting compositions of dynamic objects. The objective of this thesis is split into four parts. 
+  The Entity Component System, also widely known as ECS, is the most important architectural design patterm for realtime
+  simulations. By decoupling data from logic, ECS architectures uniquely excel at facilitating compositions of dynamic
+  objects. The objective of this thesis is to explore designing an ECS such that anything that can be done concurrently
+  will be done concurrently. As such, the design does not force synchronization through locks and rather prefers caches 
+  and transactions for non-parallelizable tasks. The thesis is split into three parts.
 
-  The study begines with an introduction and literature review of the ECS pattern, highlighting its strengths and weaknesses, and includes the motivation as to why to use an ECS over Object-Oriented Programming in realtime simulation contexts. The paper will then move on to a review of the implementation styles noticed while researching various real-world ECS implementations. Chapter \ref{chap:1} concludes with touching broadly on the concurrency styles those real-world ECS's used in their implementations.
+  Part \ref{chap:1} will cover existing ECS literature and formally define what an ECS is, the motivation as to 
+  why to use an ECS over Object-Oriented Programming (OOP) in realtime simulation contexts, and a review of various 
+  implementation styles discovered. It's important to make note ahead of time that existing literature on designing 
+  ECS's is limited, so almost everything onward was inspired by designs found in the real world from reading code or 
+  articles instead of from scientific literature.
+
+  Part \ref{chap:2} is dedicated to the introduction of the concurrency model this paper proposes. It includes formal 
+  mathematical definitions and the set of algorithms designed for scheduling and distributing tasks across
+  the ECS. At the core of this part, the paper introduces a graph model that can represent the translation of entities
+  using a finite-state-machine.
+
+  Part \ref{chap:3} introduces the GECS C library constructed for this paper. The library contains the implementation details, API,
+  structures, and various other metrics. The way that GECS preserves vectorizability of archetypes and the
+  way it uses concurrency are explained in the greatest detail towards the end. GECS is a library that aims to optimize
+  for execution in general contexts using the theroy presented in part two. Examples of these contexts are performing
+  physics calculations or facilitating user interactions.   
   
-  Chapter \ref{chap:2} is dedicated to the concurrency techniques used in the GECS library, the ECS implemented for this paper. The introduction begins by discussing the topic of vectorization and rethinking about components as types and archetypes. It then explores using archetypes to construct a runtime entity finite-state-machine (FSM) to aid in scheduling the ECS in concurrent contexts. Before wrapping up the chapter, it touches on how to retain validity of the entity FSM over runtime.
-  
-  Chapter \ref{chap:3} finally introduces the GECS library implemented for this paper. This chapter covers all topics related to implementation details to data layout and the structures used. Preserving the vectorizability of archetypes and the concurrency implementation are explained in greatest detail. The remainder of this paper is benchmarking and discussions of the results following from implementing GECS. 
-
-  GECS aims to optimize for execution in general purpose scripting contexts from performing physics calculations to facilitating user interactions. It's important to note before reading futher on that due to the nature of this subject, scientific journals regarding this topic is limited. However, articles about designing ECS architectures and presentations are widely availabile online from reputable organizations.
-
-  Experimental results are **TDB**
+  Experimental results **TBD**
 \end{abstract}
 
 \newpage
