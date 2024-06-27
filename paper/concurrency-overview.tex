@@ -189,6 +189,7 @@ There are three cases in which System A and B interact:
 Only in case 3 can the next tick occur. The nondeterminism introduced by allowing entity list mutations can cause program stalls such as in the manner proposed. And also in the context of a concurrent ECS, this can lead to deadlocks, livelocks, and data invalidation.
 
 \subsubsection{Serializability And Ledger-Based Consolidation}
+\label{sec:ledger}
 In order to solve the problem of entity consolidation in any context the entity list must stay fixed. That means for each tick, no matter the deletion or additions performed, the entity set must stay the same until the tick is complete. As such, even if perfect concurrent entity consolidation is performed, the effort is still wasted. If the list of entities can only be mutated after the serialization point, then doing early consolidation is as if it was done now since only now can the affects of entity consolidation be seen. 
 
 The GECS implementation proposes to use a ledger-based consolidation technique that caches mutation operations done on the entity list and applies these operations in order after the serialization point.

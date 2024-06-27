@@ -66,20 +66,14 @@
     columns=flexible,
     numbers=left,
     numbersep=10pt,
-    keywordstyle=\color{black}\bfseries,
+    keywordstyle=\bfseries\color{black},
     breaklines=true,
     breakatwhitespace=true,
     mathescape=true,
     tabsize=3,
-    xleftmargin=2em
-}
-
-\newcommand{\dcode}[1]{
-    \begin{center}
-    \begin{minipage}{0.8\textwidth}
-    \lstinputlisting[style=centeredblack]{#1}
-    \end{minipage}
-    \end{center}
+    xleftmargin=2em,
+    basicstyle=\ttfamily,
+    morekeywords={vec_t, map_t, uint64_t, g_core_t}
 }
 
 % Theorem Defintions
@@ -153,7 +147,8 @@
 \input{paper/ecs-paradigm}
 \input{paper/concurrency-overview}
 \input{paper/gecs}
-% \input{paper/benchmarks}
+\input{paper/benchmarks}
+\input{paper/appendix}
 % \input{paper/discussion}
 % \input{paper/conclusion}
 

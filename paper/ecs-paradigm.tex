@@ -192,35 +192,6 @@ A bitset-based ECS stores components in contiguous arrays where the entity id is
 \subsubsection{Reactive}
 A reactive ECS is more different than the others in this list. A reactive ECS uses signals emitted from mutating entities to keep individual lists of which entities belong to which system. Entitas is an example of this. \cite{SanderMertensECS}
 
-% \begin{verbatim}
-%     Entitas ECS
-
-% +-----------------+
-% |     Context     |
-% |-----------------|
-% |    e       e    |      +-----------+
-% |       e      e--|----> |  Entity   |
-% |  e        e     |      |-----------|
-% |     e  e     e  |      | Component |
-% | e          e    |      |           |      +-----------+
-% |    e     e      |      | Component-|----> | Component |
-% |  e    e    e    |      |           |      |-----------|
-% |    e    e     e |      | Component |      |   Data    |
-% +-----------------+      +-----------+      +-----------+
-%   |
-%   |
-%   |     +-------------+  Groups:
-%   |     |      e      |  Subsets of entities in the context
-%   |     |   e     e   |  for blazing fast querying
-%   +---> |        +------------+
-%         |     e  |    |       |
-%         |  e     | e  |  e    |
-%         +--------|----+    e  |
-%                  |     e      |
-%                  |  e     e   |
-%                  +------------+
-% \end{verbatim}
-
 \subsection{Concurrency in ECS Implementations}
 The majority of ECS implementations investigated had concurrency support but were severely undocumented. So only two were investigated: FLECS and EnTT.
 
