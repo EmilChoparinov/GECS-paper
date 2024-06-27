@@ -28,7 +28,10 @@ The key feature of the GECS library is that each archetype simulates the events 
 Effectively, the parallel worlds are the ledgers discussed in section \ref{sec:ledger} with the added benefit instead of caching operations to be done in parallel, the world simulates as if those changes are actually happening. So at the serialization point, the only operation that needs to be performed is a $\delta$ transition to another archetype for entities in the ledger.
 
 \subsection{Data Structures}
+\label{sec:ds}
 The data structures that compose of the GECS library are vectors and hashmaps. The vector wraps contiguous elements and provides a set of functional programming style utility functions to help with code clarity. The hashmap is implemented as an open address hashing table with a load factor of $0.75$. There is nothing special about these structures and neither are thread safe. Originally, the hashmap was thread safe and was implemented using this paper \cite{hashmaps} but later found it unnecessary so it was scraped in development. 
+
+A lot of performance was lost in the development of many of the algorithms presented because it was found that the set implemention was unstable and there was no time to fix it. So many of these algorithms, when performing set operations, are actually vectors doing $O(N^2)$ on their types. There is plenty performance left on the table for future versions of GECS.
 
 \subsection{World Struct}
 The code defined in Figure \ref{code:g_core_t} is not exactly the same code as seen on the repository on GitHub. In the actual code, the types are different in order for the C compiler to do it's magic. The types presented here are for code clarity instead of compilability.
@@ -411,10 +414,171 @@ For archetypes caches archetypes:
 Remember that archetype caches are of the same struct as the sequential world and is a world object itself. The last set of clears only occurs inside the parallel worlds.
 
 \subsection{Entity FSM}
+The entity FSM is a collection of internal functions in the \texttt{gecs.c} file. The most important of which is the \texttt{\_g\_transfer\_archetype}, which given a world, an id, and a set of types, performs the state transition.
+
+\subsubsection{Entity $\delta$ Transitions}
+Archetype transitions roughly follow the algorithm defined in chapter \ref{chap:2}. The algorithim goes as follows:
+
+\begin{figure}[htbp]
+    \begin{enumerate}
+        \item Given world $w$, entity ID $e \in w.\texttt{entity\_registry}$, and a set of types $t \in \mathcal{P}(w.type\_set)$
+        \item Create the new archetype if this is the first time seeing set $t$
+        \item Load $a \leftarrow$ next archetype
+        \item If $e \in \emptyset$, perform Algorithm \ref{alg:empty_to_a} and exit
+        \item Push an empty composite element into $a$
+        \item Copy over specifically all types that were retained from the old archetype into the new archetype (perform $a.\texttt{composite} \leftarrow a.\texttt{type\_set} \cap old_a.\texttt{type\_set}$)
+        \item Update entity record $e$ to have the last index in the \texttt{composite} and archetype pointer to $a$
+        \item Update the old archetype's \texttt{dead\_fragments} member to contain $e$ since $e$ left the old archetype.
+    \end{enumerate} 
+    \caption{Entity General Transitions Algorithm}
+    \label{alg:transition}
+\end{figure}
+
+\begin{figure}[htbp]
+\begin{enumerate}
+    \item Given archetype $a$, and entity $e$ 
+    \item Push an empty composite into $a$,
+    \item Update entity record $e$ to have the last index in the \texttt{composite} and archetype pointer to $a$
+\end{enumerate}
+\caption{Entity $\emptyset \leftarrow a$ Transition Algorithm}
+\label{alg:empty_to_a}
+\end{figure}
+
+Ideally, this algorithm should be doing only lookup operations and no loops but in the GECS implementation as stated in section \ref{sec:ds}, set operations are performed over vectors in this implementation that will be fixed in the future.
+
+It's important to note that algorithms \ref{alg:transition} and \ref{alg:empty_to_a} are not thread safe but are still used in concurrent contexts. The next following algorithms rely on entity $\delta$ transitions but they perform it between themselves and their caches instead of over the sequential world.
 
 \subsubsection{Concurrent Entity Component Additions}
+To add a new component while a system is running is actually remarkably simple. 
+
+\begin{figure}[htbp]
+\begin{enumerate}
+    \item Given a runtime query struct $q$, entity ID $e$, and set of types $t \in \mathcal{P}(q.\texttt{component\_registry})$
+    \item Is $e$ a cached ID? If so, transition to $t$ inside $q.\texttt{archetype\_context.cache}$ and exit
+    \item Store associated cached entity ID in $e_{\texttt{cache}}$. If DNE, then make a new one.
+    \item Transition to $t$ inside $q.\texttt{archetype\_context.cache}$ with entity $e_{\texttt{cache}}$
+\end{enumerate}
+\caption{Entity Concurrent Component Addition}
+\label{alg:conc_add}
+\end{figure}
+
+\subsubsection{Concurrent Entity Component Access}
+To access a new component the following algorithm is presented:
+
+\begin{figure}[htbp]
+\begin{enumerate}
+    \item Given a runtime query struct $q$, entity ID $e$, and set of types $t \in \mathcal{P}(q.\texttt{component\_registry})$
+    \item Is $e$ a cached ID? If so, apply the thread unsafe get component function to the cache 
+    \item Check if the component lives inside the archetype (existed at tick start), or lives in cache (added during this tick)
+    \item Depending on step 3, return the address to that component using the thread unsafe get component function. Always prefer returning address inside the archetype first, then cache
+\end{enumerate}
+\caption{Entity Concurrent Component Access}
+\label{alg:conc_access}
+\end{figure}
+
 \subsubsection{Concurrent Entity Component Deletions}
+The deletion algorithm is a tricky one due to the use case of deleting components that existed at tick start. This means when deleting, a genuine transition is required because if this entity stayed at the same archetype, it risks giving access to undefined memory. To avoid this, when deleting original components off the entity, the entire entity is offloaded into the cache and then the state transition occurs. 
+
+Clearly, this makes a huge mess of things but it's nothing that cannot be recovered from. GECS uses a preference system when applying component access as seen in step 4 of Algorithm \ref{alg:conc_access}. The components on the archetype will stay fresh while the ones that were used to simulate the deletion transition inside the cache will become stale. 
+
+\begin{figure}[htbp]
+    \begin{enumerate}
+        \item Given a runtime query struct $q$, entity ID $e$, and set of types $t \in \mathcal{P}(q.\texttt{component\_registry})$
+        \item Is $e$ a cached ID? If so  apply the threade unsafe remove component function to the archetype cache
+        \item Check if the cache archetypes types intersect with the entities current types. If they do not, this is the first time doing a deletion transition. Do the following steps for the first time, else skip to step 6:
+        \item Construct a type union between the cache archetype and entity archetype sets. 
+        \item Transition with the type union in the cache
+        \item Apply the thread unsafe remove component function to the archetype cache and exit
+\end{enumerate}
+\caption{Entity Concurrent Component Removal}
+\label{alg:conc_rem}
+\end{figure}
+
 \subsubsection{Entity Consolidation Algorithm}
 
-\subsection{Caches}
+The entity consolidation algorithm is used to clear the cache of mutations saved over the progress of a tick. There exists two entities if any component additions or deletions occured: the existing entity in the sequential worlds entity register and the cached entity created by the archetype to store non-parallelizable changes. 
 
+Since GECS prefers to always use component data from the original archetype composite, there is a division between fresh components and stale components. The deletion operation is the only operation that produces these stale components. With this in mind, GECS performs the following algorithm to merge entities:
+
+\begin{figure}[H]
+    \begin{enumerate}
+        \item Given the sequential world $w$
+        \item For each archetype $a \in w.\texttt{archetype\_registry}$, perform the following steps:
+        \item Perform Algorithm \ref{alg:entt_del_queue}
+        \item Perform Algorithm \ref{alg:entt_cre_queue}
+        \item Perform Algorithm \ref{alg:entt_merge}
+\end{enumerate}
+\caption{World Merge Algorithm}
+\label{alg:world_merge}
+\end{figure}
+
+\begin{figure}[H]
+    \begin{enumerate}
+        \item While the delete queue is not empty:
+        \item $e \leftarrow \texttt{pop()}$
+        \item Remove $e$ from the the worlds member: \texttt{entity\_registry} 
+        \item Remove $e$ from $e$'s archetype member: \texttt{entt\_members}
+        \item If there exists a cache id pair with $e$, find and remove it from the cache as well 
+\end{enumerate}
+\caption{Consuming Entity Deletion Queue}
+\label{alg:entt_del_queue}
+\end{figure}
+
+Note that all entity data when an entity exists in the entity creation queue is stored in cache, so all that needs to be performed is popping values, translating types, and then setting the components
+\begin{figure}[htbp]
+    \begin{enumerate}
+        \item While the creation queue is not empty:
+        \item $e \leftarrow \texttt{pop()}$
+        \item Create new entity ID $n \leftarrow w.\texttt{entity\_registry}$
+        \item Transition $n$ to be on the same archetype as $e$ in the sequential world
+        \item Set all the components in $n$ to have the same data as $e$
+        \item Remove $e$ from the cache
+\end{enumerate}
+\caption{Consuming The Entity Creation Queue}
+\label{alg:entt_cre_queue}
+\end{figure}
+
+Note that it is important to first delete all entities in the delete queue before moving on to consolidate entities. If the delete queue is not first, the entity merge algorithm will merge in the entity thats in the deletion queue. This is wasted time as it will be immediately deleted.
+\begin{figure}[htbp]
+\begin{enumerate}
+    \item For each entity $(e_{\texttt{seq}},e_{\texttt{cache}})$ in the archetype cache interface:
+    \item Load $seq \leftarrow$ sequential entity record
+    \item Load $par \leftarrow$ cache entity record
+    \item Transfer $seq$'s archetype to $par$'s archetype
+    \item For each new type in $\{par.\texttt{type\_set} \setminus seq.\texttt{type\_set}\}$:
+    \item Set the component data in $seq$ to whats collected from $par$ 
+\end{enumerate}
+\caption{Entity Merge}
+\label{alg:entt_merge}
+\end{figure}
+
+\subsection{Scheduling}
+The scheduling algorithm exists in the \texttt{\_g\_assign\_fsm} function. It applies the system functions to which archetypes they should run on. All archetypes run on their own thread.
+
+\begin{figure}[H]
+\begin{enumerate}
+    \item Given the sequential world $w$
+    \item For each archetype $a \in w.\texttt{archetype\_registry}$, perform the following steps:
+    \item For each system $sd$ perform the following steps:
+    \item If $a.\texttt{type\_set} \cap sd.\texttt{requirements} \not= \emptyset$, perform the following steps
+    \item Push $a.\texttt{contenders} \leftarrow sd$
+\end{enumerate}
+\caption{Scheduling Systems}
+\label{alg:schedule_fsm}
+\end{figure}
+
+This is the algorithm performed during the execution phase of the tick lifecycle.
+\begin{figure}[H]
+\begin{enumerate}
+    \item Given the sequential world $w$
+    \item For each archetype $a \in w.\texttt{archetype\_registry}$, perform the following steps:
+    \item Run the following steps in their own thread:
+    \item For each system $sd \in a.\texttt{contenders}$ perform the following steps:
+    \item Run $sd$
+\end{enumerate}
+\caption{Running Systems}
+\label{alg:run_fsm}
+\end{figure}
+
+\subsection{Support For Embarassingly Parallel Tasks}
+GECS supports embarassingly parallel tasks my dividing dividing an archetypes composite into chunks to run on separate threads. All this is handled by GECS and the user only needs to pass in a function they deem thread safe.
