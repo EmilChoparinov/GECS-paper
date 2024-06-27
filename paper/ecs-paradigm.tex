@@ -140,11 +140,31 @@ A core issue with the ECS pattern is that many games will burn through ID's fast
 One of the biggest flaws of ECS architectures is that perfoming direct entity relationship queries are slow and not performant because of how components and entities are organized. By adding relationships to other entities in the ID, query times can shorten. For more information on how this is done inside FLECS, which pioneered this techinque, read Sander Merterns article in \cite{SanderMertensEntityIDs}.
 
 \subsubsection{Dense ECS}
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.5\linewidth]{resources/dense_ecs.png}
+%     \caption{Dense ECS Architecture Example}
+%     \label{fig:dense_ecs}
+% \end{figure}
+
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.5\linewidth]{resources/dense_ecs.png}
-    \caption{Dense ECS Architecture Example}
-    \label{fig:dense_ecs}
+    \begin{verbatim}
+    +-----+-----+-----+-----+-----+                                  
+    |  A  |  B  |  C  |  D  |  E  |                                  
++-----+-----+-----+-----+-----+-----+                                  
+|  0  |  -  |  -  |  +  |  -  |  -  |                                  
++-----+-----+-----+-----+-----+-----+                                  
+|  1  |  +  |  -  |  +  |  -  |  +  |                                  
++-----+-----+-----+-----+-----+-----+                                  
+|  2  |  -  |  +  |  +  |  -  |  -  |                                  
++-----+-----+-----+-----+-----+-----+                                  
+|  3  |  +  |  -  |  -  |  +  |  -  |                                  
++-----+-----+-----+-----+-----+-----+                                  
+|  4  |  -  |  -  |  -  |  +  |  -  |                                  
++-----+-----+-----+-----+-----+-----+                                  
+    \end{verbatim}
+    \caption{Dense ECS Architecture Table Example}
 \end{figure}
 
 Dense ECS's, also known as Table based ECS's, store entities inside of large tables. In these tables, components and entities are columns and rows respectively. This gives way to fast component or entity queries, depending on which is is contiguous in memory. Some popular types of this ECS is FLECs or the Unity Game Engine's own ECS, Unity DOTS. \cite{SanderMertensFAQ}
