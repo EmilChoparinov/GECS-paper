@@ -106,6 +106,29 @@ As an example, suppose we have an ECS with the following properties:
     \caption{Example FSM Graph Of Archetypes During Runtime}
     \label{fig:graph1}
 \end{figure}
+                                                         
+\begin{figure}[htbp]
+    \centering
+    \begin{verbatim}                                                                      
+                   +---------+       +---------+                                  
+              +--->|   [A]   |<----->|  [A,C]  |<--------+                        
+      +-------+    +---------+       +---------+         |                        
+      v                                   ^              v                        
++---------+        +---------+            |         +---------+                   
+|   [0]   |<------>|   [B]   | <----------+         | [A,B,C] |                   
++---------+        +---------+                      +---------+                   
+     ^                  ^  ^                             ^                        
+     |              +---+  |          +---------+        |                        
+     v              v      +--------->|  [A,B]  +--------+                        
++---------+     +---------+           +---------+                                 
+|   [D]   |     |  [B,D]  |                                                       
++---------+     +---------+                                                              
+    \end{verbatim}
+    \caption{Dense ECS Architecture Table Example}
+\end{figure}
+                                                         
+                                                         
+
 
 As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the the archetype with no components. As components get added to entities over their runtime, entities perform state transitions to their designated archetype.
 
