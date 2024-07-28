@@ -79,9 +79,23 @@ Simply put, an archetype is a set of types as defined in section \ref{section:fo
     \label{code:ecs_archetypes}
 \end{figure}
 
-Even though in Figure \ref{code:ecs_archetypes} those arrays are independent they do not have to be. In the GECS implementation, for example, all components of an archetype are interleaved into a contiguous array. So the archetype storage looks more like that of Figure \ref{code:homogenous_ecs} than Figure \ref{code:ecs_archetypes}.
+Even though in Figure \ref{code:ecs_archetypes} those arrays are independent they do not have to be. In the GECS implementation, for example, all components of an archetype are interleaved into a contiguous array. So archetype storage looks more like that of Figure \ref{code:homogenous_ecs} than Figure \ref{code:ecs_archetypes}. Figure \ref{fig:composite} elaborates on what is meant by interleaved components. This is called the composite.
 
-Note that since archetypes are sets of types, archetypes $AB \equiv BA$ since both represent the same archetype.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{verbatim}
+Archetype X:                                                             
++---------+---------+-------------+---------+---------+-------------+---+
+|Component|Component|Component    |Component|Component|Component    |   |
+|A      8B|B      8B|C         16B|A      8B|B      8B|C         16B|...|
++---------+---------+-------------+---------+---------+-------------+---+
+    \end{verbatim}
+    \caption{Example Composite Vector Of Archetype X}
+    \label{fig:composite}
+\end{figure}
+
+The composite vector can contain components of varying lengths. Component C is twice as large as Components A and B. Note that since archetypes are sets of types, therefore archetypes $AB \equiv BA$ since both represent the same archetype.
 
 \subsection{Representing Archetypes As An Entity Finite-State-Machine}
 \label{sec:fsm_arc}
@@ -121,11 +135,8 @@ As an example, suppose we have an ECS with the following properties:
     \caption{Example FSM Graph Of Archetypes During Runtime}
     \label{fig:graph1}
 \end{figure}
-                                                         
-                                                         
 
-
-As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the the archetype with no components. As components get added to entities over their runtime, entities perform state transitions to their designated archetype.
+As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the archetype with no components. As components get added to entities over their runtime, entities perform state transitions to their designated archetype.
 
 It's important to note that this paper defines the serialization point to be the end of a tick and therefore entity transitions that occur during system runtime are invalid until the serialization point is reached. As such, an entities transition occurs once per tick to its final valid state. This means an entity could perform the transition, say $\{B,D\} \rightarrow \{A,B,C\}$ in one step, even though it passes through archetypes $[\{B\}, \{A,B\}]$ on the FSM. On the next tick, the edge $\{B,D\} \rightarrow \{A,B,C\}$ will be present. 
 
@@ -135,6 +146,7 @@ Archetype graphs display the following properties:
     \item All existing archetypes must have a path to vertex $\emptyset$.
     \item Components can appear multiple times.
     \item Archetypes can only appear once.
+    \item Entities can only appear once at one archetype.
 \end{enumerate}
 
 There are a couple interesting things to notice in Figure \ref{fig:graph1}. Notice how there is no transition between state $[B,D]$ and $[D]$. This is because this graph represents a runtime of an ECS and while it is possible to transition between $[B,D] \leftrightarrow [D]$, it has yet to happen in this runtime context, and is therefore not required to exist. 
@@ -171,7 +183,22 @@ An important scenario to consider is what occurs when an archetype loses all its
 Due to the nature that ECS follows principles in data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system in any order or be processed in some order. Entities may be sent to the system at seemingly random.
 
 \subsubsection{Scheduling Algorithm}
-There are two classes of functions capable to be given to the scheduling algorithm from the user: functions that can be encapsulated by one archetype and functions that require multiple archetypes to process. In other words: systems where $\lambda_{\texttt{req}}$ is a subset of the archetype type set or where $\lambda_{\texttt{req}}$ is a superset of the archetype type set. Typically, superset type requests will be scheduled more serially since they "lock" more data within the real context. 
+Before discussing the scheduling algorithm, we must define more strictly what functions are allowed to query in this architecture. Since archetypes and the state machine are abstracted away from the user, the set of rules for what is queryable and what is not should not be exposed to the user. The architecture must handle all query requests and attempt to parallelize as much as possible. 
+
+Generally, if there exists an archetype that is the superset of the query, then the query is ok. But asking a library user to only query in sets of existing archetypes is unreasonable. If the user, for example, in their render system wants to collect non-associated components \texttt{[Position, Score, Health]}, the ECS will fail. There is no archetype that holds these three random components together. This would make the query a superset of archetypes and this use case must be handeled in some manner that keeps the concurrency model valid. 
+
+The way this scheduling algorithm solves this is by asking the user to always give the intersection of required types. For this example, suppose:
+\begin{itemize}
+    \item Player contains \texttt{[Position, Texture, Inputs, Health, Score]}
+    \item Enemy contains \texttt{[Position, Texture, Health, Bullets Left]}
+    \item Game Objects contain \texttt{[Position, Texture]}
+\end{itemize}
+
+The intersection between (Player $\cap$ Enemy $\cap$ Game Objects) is the \texttt{Position} component. Therefore the render system should request only for the \texttt{Position} component. This will allow the ECS to correctly queue up each of those entities as concurrently as possible. 
+
+But what about the other data? By applying the 4th property of the archetype graph, we know that only one version of the entity can exist at one time. Because of this, it is safe to load the rest of the entities data off the archetype when its time to process that specific position. Thread unsafe entity retrieval functions can be used because the data is essentially "locked" to only be available for the current system.
+
+With this in mind, the only function class allowed to be given to the scheduling algorithm from the user are functions whose requirements are a subset or equal to some archetype type set in $A$. The simple algorithm below assigns each function on the Entity FSM as such:
 
 \begin{figure}[H]
     \begin{enumerate}
@@ -181,45 +208,49 @@ There are two classes of functions capable to be given to the scheduling algorit
         \item Schedule a unique thread for all archetypes.
         \item For each thread, run each system $\lambda$ that marked this archetype.
     \end{enumerate}
-    \caption{Part 1 Scheduling}
+    \caption{Scheduling Algorithm}
 \end{figure}
 
-For the remaining systems unmarked, we sort them by the length of their archetype type set. This is done because the shortest ones have the best chance of running in parallel. The process from part 1 is reversed and archetypes are marked in a staging table. 
-
-\begin{figure}[H]
-    \begin{enumerate}
-        \item For each leftover $\lambda \in \Lambda$, do the following steps 2-3:
-        \item Use a set $a$, representing which archetypes have been marked this iteration.
-        \item Loop through each archetype $g \in A$, do the following steps 4-5
-        \item Skip $g$ if in $a$.
-        \item If $g \subset \lambda\_{\texttt{req}}$ then add $g$ to $a$ and $g$ to $\lambda\_{\texttt{a}}$.
-        \item After checking each archetype, reset $a$. Add 1 new row to the table.
-        \item Go back to step 1 until the leftover $\lambda$ set is empty.
-    \end{enumerate}
-    \caption{Part 2 Scheduling}
-\end{figure}
-
-\textbf{Example:} The following is an example graph marked based on the algorithm above.
+\textbf{Example:} The following is an example execution table based on the algorithm above.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.5\linewidth]{resources/graph2.png}
+    \begin{verbatim}
+                                          Itr Step:                                          
+                                          +--+--+--+                                         
+                                  Typeset:|0 |1 |2 |                                         
+                                  +-------+--+--+--+                                         
+                                  |{A}    |L3|  |  |                                         
+                                  +-------+--+--+--+                                         
+                                  |{B}    |  |  |  |                                         
+                                  +-------+--+--+--+                                         
+                                  |{D}    |L4|  |  |                                         
+                                  +-------+--+--+--+                                         
+                                  |{A,B}  |L3|  |  |                                         
+                    Systems:      +-------+--+--+--+                                         
+                    Requirements: |{A,C}  |L1|L3|  |                                         
+                    L1 = [A,C]    +-------+--+--+--+                                         
+                    L2 = [B,C]    |{B,D}  |L4|  |  |                                         
+                    L3 = [A]      +-------+--+--+--+                                         
+                    L4 = [D]      |{A,B,C}|L1|L3|L2|                                         
+                                  +-------+--+--+--+                                                                               
+    \end{verbatim}
+    \caption{Example Execution Table}
+    \label{fig:graph1}
+\end{figure}
+
+Each row in the table above representing a unique thread. Each thread takes however long it needs to finish a function before moving onto the next. Each thread does not need to wait for the other threads to finish. Although, once all archetypes have finished, then the tick is complete and is ready for the next tick. 
+
+Another way to visualize the execution table is with colors and the FSM. The following is an example graph marked based on the scheduling algorithm.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{resources/graph2.png}
     \caption{Example of a Scheduled Entity FSM Graph}
     \label{fig:graph2}
 \end{figure}
-
-The ECS in Figure \ref{fig:graph2} contains four systems: 
-
-\begin{equation*}
-    \Lambda = \begin{cases}
-        \lambda_1 &= [A,C] \\
-        \lambda_2 &= [B,C] \\ 
-        \lambda_3 &= [A] \\ 
-        \lambda_4 &= [D] \\ 
-    \end{cases}
-\end{equation*}
-
-Notice how on any archetype vertex in this graph when there are multiple colors this signifies data access contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implemention does provide support for embarassingly parallel access patterns. So each $\lambda$ may also have some concurrency inside its own function.
+ 
+Notice how on any archetype vertex in the graph when there are multiple colors signifies data access contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implemention does provide support for embarassingly parallel access patterns. So each $\lambda$ may also have some concurrency inside its own function.
 
 \subsection{Entity Consolidation}
 A key concept has been omitted thus far and that is entity consolidation. How, with these systems running concurrently, are entities transitioned between archetypes? It turns out, unlike entity modification which can be handled in parallel, component addition and deletion cannot be handled in any parallel contexts. The following sections contain a proof made for this paper and two workarounds are suggested.
@@ -243,13 +274,8 @@ In order to solve the problem of entity consolidation in any context the entity 
 
 The GECS implementation proposes to use a ledger-based consolidation technique that caches mutation operations done on the entity list and applies these operations in order after the serialization point.
 
-\subsubsection{Alternative To Ledger-Based Consolidation}
-An alternative to the implementation GECS proposed is to add a constraint to $\lambda_{req}$ such that operations done where the queried archetype $a \not\subseteq \lambda_{req}$ makes them invalid. By doing so, it ensures that $\lambda$ will be scheduled by the scheduler to process $a$. 
-
-This provides the unique opportunity that whenever working in the context of archetype $a$, all requests to create entities with archetype $a$ will be processed and all other requests ignored. In some ways, this alternative is more elegant than what GECS implemented. But this thought came too late in development and has some drawbacks. Mainly, having to know the set of components the system depends on before the system gets scheduled. I also theorize that this architecture will not be as performant as using a ledger because more archetypes will be contended and therefore some of the more concurrent work will be lost.
-
 \subsubsection{$\delta$ Transition To $\emptyset$}
-Going back to ledger-based consolidation. Since entity deletion causes an entity to transition to $\emptyset$, it is not parallelizable and the fact this entity is deleted must be stored in the ledger. After the serialization point occurs, the ECS will go and clean out all entities that are supposed to translate to the $\emptyset$ directly from the ledger. 
+Since entity deletion causes an entity to transition to $\emptyset$, it is not parallelizable and the fact this entity is deleted must be stored in the ledger. After the serialization point occurs, the ECS will go and clean out all entities that are supposed to translate to the $\emptyset$ directly from the ledger. 
 
-\subsubsection{$\delta$ Transition For Non-$\emptyset$ Operations}
+\subsubsection{$\delta$ Transition To Non-$\emptyset$}
 Much like the transition to the $\emptyset$, since the entity is transitioning archetypes it is not parallelizable. The transition operation will be stored in the ledger. After the serialization point, then the ECS will perform the $\delta$ transitions. 

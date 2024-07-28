@@ -115,11 +115,6 @@ void ecs_free(ecs *e) {
   free(e);
 }
 
-
-
-
-
-
 int32_t ecs_id(ecs *e, int32_t FLAGS) {
   int32_t new_id = e->id_gen++;
 
@@ -171,7 +166,12 @@ void *ecs_entt_get_component(ecs *e, int32_t entt, int32_t comp_id) {
   if (pos == NULL) return NULL;
   return vec_at(component_vector, *pos);
 }
+\end{lstlisting}
 
+\subsubsection{Naive Dense ECS Demo}
+\begin{lstlisting}[
+    language=C
+]
 typedef struct Vec2 Vec2;
 struct Vec2 {
   int16_t x, y;
@@ -239,74 +239,6 @@ int main(void) {
   printf("Simulation Done\n");
 
   ecs_free(e);
-  return 0;
-}
-\end{lstlisting}
-
-\section{Example GECS Library Code Use}
-\label{appendix:code_example_1}
-\begin{lstlisting}[
-   language=C
-]
-typedef struct Vec2 Vec2;
-struct Vec2 { int32_t x, y; };
-
-/* Tags are not support yet, so: */
-struct __any { int8_t _; };
-typedef struct __any ReachedGround;
-
-int8_t sim_end = 0; /* Simulation ends when set to 1 */
-int8_t entities_left = 3;
-
-void notify_on_ground(g_query_t *q) {
-  g_itr itr = gq_seq(q);
-  int8_t seen_entity = 0;
-  while (!gq_done(itr)) {
-    gq_queue_delete(q, gq_id(itr));
-    printf("Entity fell, deleting");
-    entities_left--;
-    if (entities_left == 0) sim_end = 1;
-    itr = gq_next(itr);
-    seen_entity = 1;
-  }
-  if(seen_entity == 0) printf("No entity fell this tick!\n");
-}
-
-void update_entt_fall(g_itr *itr, void *arg) { 
-  gq_field(*itr, Vec2)->y--;
-  printf("Updated to: %d\n", gq_field(*itr, Vec2)->y);
-  if(gq_field(*itr, Vec2)->y == 0) {
-    gq_add(q, gq_id(*itr), ReachedGround);
-  } 
-}
-
-void fall(g_query_t *q) {
-  g_vec vec = gq_vectorize(q);
-  /* Concurrently update the falling of each entity */
-  gq_each(vec, update_entt_fall, NULL);
-}
-
-int main(void) {
-  g_core_t *world = g_create_world();
-
-  /* Register Component Phase */
-  G_COMPONENT(world, Vec2);
-  G_COMPONENT(world, ReachedGround);
-
-  /* Register System Phase */
-  G_SYSTEM(world, update_entt_fall, Vec2);
-  G_SYSTEM(world, notify_on_ground, ReachedGround);
-
-  /* Initial Entity Generation Phase */
-  for (int i = 0; i < entities_left; i++) {
-    gid entt_id = g_create_entity(world);
-    G_ADD_COMPONENT(world, entt_id, Vec2);
-    G_SET_COMPONENT(world, entt_id, Vec2, {.x = 10, .y = 10});
-  }
-
-  while (sim_end != 0) g_progress(world);
-
-  g_destroy_world(world);
   return 0;
 }
 \end{lstlisting}
