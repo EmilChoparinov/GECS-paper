@@ -1,0 +1,23 @@
+\appendix
+\section{Appendex A}
+\label{appendix:a}
+
+The following are definitions used in this paper. The concepts not introduced in \ref{chap:2} are all based on the FAQ provided by \cite{SanderMertensFAQ} and \cite{RomeoPHD}'s research.
+\begin{description}[font=\sffamily\bfseries, leftmargin=1cm, style=nextline]
+    \item[Entity]
+        An entity is a unique identifier used to represent an "object" in a simulation. This unique identifier is used in some manner by the ECS to collect a set of components. Some ECS's try to make the identifier intelligent to optimize data queries but in general an entity is just some unique value. This will be discussed in more depth throughout the paper.
+    \item[Component]
+        Generally speaking, a component is data. It can be defined as a struct, tuple, or class. For this paper, a compnent is defined to be a segment of either complete or incomplete data.
+    \item[System]
+        A system is a function defined by the ECS user that intends to execute operations over a collection of entities. A system contains two parts: the query and execution phase. A system initially queries the ECS to collect related components, which it will then pass to the function and execute.
+    \item[Tick]
+        A tick is defined to be the serialization point during runtime in which all systems have progressed and ran completely once.
+    \item[Type]
+        A type is a conventional data type. It represents a collection or set of properties on an object and various operations can be defined to operate on said type. In the context of this paper, a type is provided to the ECS to organize and automatically vectorize entities that contain such a type. A type an be considered a component.
+    \item[Archetype] 
+        An archetype is a unique set of types.
+    \item[Vectorization]
+        The process in which a homogeneous set of components exist in memory such that they are contiguous, and allow for operations to be done in parallel with SIMD instructions.
+  \end{description}
+
+

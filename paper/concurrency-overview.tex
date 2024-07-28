@@ -2,24 +2,34 @@
 
 \section{Concurrency Model}
 \label{chap:2}
-The following concurrency model is of this papers own design. It's inspired by FLECs in the way that it vectorizes type compositions. The implementations most likely overlap to some degree.
+The following chapter introduces a formal concurrency model written of this papers own design. The core of the paper is the theory proposed here. The GECS Library uses this theory to orchistrate components to ensure an acceptable degree of wait-free concurrency. This concurrency model is of this papers own design. It's inspired by FLECs in the way that it vectorizes type compositions.
 
 \subsection{Formal definition} \label{section:formal_definition}
-In this paper we define a property of an Entity Component System to be of a tuple $W = (T, A, \delta, \Lambda)$ consisting of:
+We define the following property of an Entity Component System to be of a tuple $W = (T, A, \delta, \Lambda)$ consisting of:
 \begin{enumerate}
-    \item A finite set of types $T$
-    \item A set of archetypes $A \subseteq \mathcal{P}(T)$, where $\mathcal{P}(T)$ denotes the power set of $T$    
-    \item Some transition function $\delta : A \times T \rightarrow A$
-    \item A set of systems $(\lambda, \lambda_{req}) \in \Lambda$ such that $\lambda : W \rightarrow W$ and $\lambda_{req} \subseteq \mathcal{P}(T)$ representing the types required to initiate $\lambda$
+    \item A finite set of types $T$.
+    \item A set of archetypes $A \subseteq \mathcal{P}(T)$, where $\mathcal{P}(T)$ denotes the power set of $T$.
+    \item Some transition function $\delta : A \times T \rightarrow A$.
+    \item A set of systems $(\lambda, \lambda_{req}) \in \Lambda$ such that $\lambda : W \rightarrow W$ and $\lambda_{req} \subseteq \mathcal{P}(T)$ representing the types required to initiate $\lambda$.
 \end{enumerate}
-$W$ represents one world within the Entity component system. This definition will later be used in this chapter to generate the entity finite state machine, also called the archetype graph.
+$W$ represents the concept of a world, or one simulation, within the ECS. The ECS ensures that the following properties in context to worlds hold:
 
-\subsection{Types And Archetypes}
-The formal definition starts with the introduction of a finite set of types $T$. A type inside this set is a unique identifier that reprensents component metadata found in the context of $W$.
+\begin{enumerate}
+    \item An ECS may contain multiple worlds.
+    \item Only one world can be considered to be the "real" context.
+    \item All worlds except one can be considered to be in the "simulation" context.
+\end{enumerate}
+
+At a very high level, the real context contains all vectorized data and the simulation context contains future operations to be applied to the real context that are not able to be done concurrently. Later in this chapter, the paper provides a proof as to why certain operations within this concurrency model cannot be done in parallel. 
+
+This definition will later be used in this chapter to generate an entity finite-state-machine (FSM), also referred to as the archetype graph.
+
+\subsection{Types And Archetypes Relationships}
+The formal definition at the beginning of this chapter starts with the introduction of a finite set of types $T$. A type inside this set is a unique identifier that represents component metadata found in the context of $W$.
 
 Until now, components were assumed to be stored in large, homogeneous vectors. This is great for cache locality, vectorizability, and is optimal for an ECS. But such a system when put in a runtime environment quickly falls apart, namely when composite type entities are introduced (entities with more than one component). Where should they get placed? In vector A or vector B? If we choose either, the other is no longer vectorizable. 
 
-Archetypes are a composition of types that exist in within $\mathcal{P}(T)$. Archetypes, argued later in this chapter, are able to always able to maintain their vectorizability. Archetypes are critical for this concurrency model to work. They are the foundation on which what is able to be parallelized during the GECS runtime. \cite{SanderMertensECS}
+Archetypes are a composition of types that exist within $\mathcal{P}(T)$. Archetypes, argued later in this chapter, are able to always able to maintain their vectorizability. Archetypes are critical for this concurrency model to work. They are the foundation on which what is able to be parallelized during the GECS runtime. \cite{SanderMertensECS}
 
 \subsection{Vectorization}
 Vectorization is a type of data parallelism such that an operation is simultaneously applied to different segments of a vector. This is typically achieved with some set of vector-based instructions (such as SIMD) built into a CPU or by using more than one core at a time. Regardless, for the purpose of an ECS, vectorization means that the data is kept contiguous in some manner. The goal of this concurrency model is to retain this contiguous property at all times for archetypes. \cite{vectorization_wolfe_michael}
@@ -44,7 +54,7 @@ Suppose there exists a set of entites $E$ and $n = |E|$. Suppose $T := \{A,B,C\}
     \label{code:homogenous_ecs}
 \end{figure}
 
-In this ideal world, entity ID can be emulated by the index to all vectors because the property $\forall t \in T : |t| = n$ holds. This ECS is positioned advantageously because all vectors are contiguous and therefore are vectorizable. This is only true because of the indexing property mentioned.
+In this ideal world, entity ID's can be emulated by simply being the index to the vectors. This is possible because the indexing property for this scenario $\forall t \in T : |t| = n$ holds. This ECS is positioned advantageously because all vectors are contiguous and therefore are vectorizable. This is only true because of the indexing property mentioned.
 
 Suppose during runtime one of the entities at some index $k$ removes some component $t$. In such a situation, the defined indexing property is broken because not all vectors are of the same length and the gap in memory now means it is impossible to write vectorized code for this ECS.
 
@@ -75,13 +85,13 @@ Note that since archetypes are sets of types, archetypes $AB \equiv BA$ since bo
 
 \subsection{Representing Archetypes As An Entity Finite-State-Machine}
 \label{sec:fsm_arc}
-ECS applications are expected to handle operations over entities that can add, modify, or remove components. In the context of archetypes, this means being able to transition an entity between archetypes. 
+ECS applications are expected to handle operations over entities that can add, modify, or remove components. In the context of archetypes, this means being able to transition an entity between them. 
 
 An example of such a situation is a game. Suppose all entities within the proximity of some point in space gain a tag component saying "buffed", but when they leave the proximity the tag component is removed. These types of state transitions may occur hundreds of times and need to be performant. 
 
 \subsubsection{Archetype Graphs}
 
-A finite state machine emerges from using archetypes to organize entities in a specific way. If the addition and removal of components are considered as state transitions, then the following in Figure \ref{fig:graph1} represents existing archetypes during some ECS runtime. We define vertices to be archetypes in $W$ and edges to be component addition or removal transitions to adjacent archetypes.
+A finite state machine emerges from using archetypes to organize entities in a specific way. If the addition and removal of components are considered as state transitions, then the following in Figure \ref{fig:graph1} represents existing archetypes during some ECS runtime. We define vertices to be archetypes in $W$ and edges to be entity transitions to adjacent archetypes.
 
 As an example, suppose we have an ECS with the following properties:
 \begin{align}
@@ -99,7 +109,7 @@ As an example, suppose we have an ECS with the following properties:
 
 As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the the archetype with no components. As components get added to entities over their runtime, entities perform state transitions to their designated archetype.
 
-It's important to note that this paper defines the serialization point to be the end of a tick and therefore entity transitions that occur during system runtime are invalid until the serialization point is reached. As such, an entities transition occurs once per tick to its final valid state. This means an entity could perform the transition, say $\{B,D\} \rightarrow \{A,B,C\}$ in one step, even though it passes through archetypes $[\{B\}, \{A,B\}]$ on the FSM.  
+It's important to note that this paper defines the serialization point to be the end of a tick and therefore entity transitions that occur during system runtime are invalid until the serialization point is reached. As such, an entities transition occurs once per tick to its final valid state. This means an entity could perform the transition, say $\{B,D\} \rightarrow \{A,B,C\}$ in one step, even though it passes through archetypes $[\{B\}, \{A,B\}]$ on the FSM. In the next tick, the edge $\{B,D\} \rightarrow \{A,B,C\}$ will be present. 
 
 Archetype graphs display the following properties:
 
@@ -109,9 +119,9 @@ Archetype graphs display the following properties:
     \item Archetypes can only appear once.
 \end{enumerate}
 
-There are a couple interesting things to notice in Figure \ref{fig:graph1}. Notice how there is no transition between state $[B,D]$ and $[D]$. This is because this graph represents a runtime of an ECS and while it is possible to transition between $[B,D] \leftrightarrow [D]$, it has yet to happen in this runtime context. 
+There are a couple interesting things to notice in Figure \ref{fig:graph1}. Notice how there is no transition between state $[B,D]$ and $[D]$. This is because this graph represents a runtime of an ECS and while it is possible to transition between $[B,D] \leftrightarrow [D]$, it has yet to happen in this runtime context, and is therefore not required to exist. 
 
-The component $C$ in Figure \ref{fig:graph1} is special in the regard that it is not adjacent to the $\emptyset$ vertex. This does not mean that it is impossible to create an entity with only component $C$ but that the runtime has yet to have that situation occur.
+The component $C$ in Figure \ref{fig:graph1} is special in the regard that it is not adjacent to the $\emptyset$ vertex like the others. This does not mean that it is impossible to create an entity with only component $C$ but that the runtime has yet to have that situation occur.
 
 To loop back to the proximity example in the introduction in section \ref{sec:fsm_arc}, by representing additions and deletions as runtime state transitions it should now be clear that large performance gains are achieved via these edges. Initially, the first entity that transitions between two states in the simulation will be slow because the edge between those two vertices must be made. Once that edge is made, it is cached and the deletion and transfer of an entity to another archetype drops from $O(N)$ to $O(1)$.
 
@@ -128,27 +138,48 @@ The following operations are all thread safe due to the scheduling algorithm exp
     \item Create the edge $G \leftrightarrow G \cup \{C\}$. Apply component addition.
 \end{enumerate}
 
-When considering concurrency, data invalidation can occur if the archetype transitions too early before the serialization point occurs. So these operations must be cached in some form. A ledger is introduced later to handle this.
+When considering concurrency, data invalidation can occur if the archetype transitions too early before the serialization point occurs. So these operations must be cached in some form. The simulation worlds handle this for us.
 
 \textbf{Entity Component Deletion: } When an entity is marked to have a component deleted. The same algorithm is used in entity component addition. Both addition and deletion use the same transition function $\delta$ of the papers ECS definition.  
 
-\textbf{Entity Deletion: } When an entity is marked for complete deletion, the archetype it was part of must have at least one more entity to exist. If the archetype is empty, it must be removed from the graph. While this property keeps the graph mathematically pretty, there is no reason to programatically remove cached edges as that the probability that the edge will be used again is high. The memory usage of an empty archetype is also inconsequential. 
+\textbf{Entity Deletion: }
+When an entity is marked for deletion, the archetype has the choice to either delete it or wait to delete all entities together in a batch at some point in the future. Both of these strategies are thread safe. 
+
+An important scenario to consider is what occurs when an archetype loses all its entities. While the archetype must be removed from the graph since no entities are there and to it'll keep it mathematically pretty, there is no need. In practice, theres a decently high probability that archetype will gain an entity again and deleting those edges will only slow down specific entity transition patterns. The memory usage of an empty archetype is inconsequential and therefore there is no real tradeoff of keeping it alive.
 
 \subsection{Scheduling Systems}
 \label{sec:scheduling}
 
-Due to the nature that ECS patterns follow principles in of data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system all in any order or be processed in some order. Entities may be sent to the system in seemingly random orders. Such is how most concurrent algorithms go.
+Due to the nature that ECS follow principles in of data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system all in any order or be processed in some order. Entities may be sent to the system in seemingly random orders.
 
 \subsubsection{Scheduling Algorithm}
-The scheduling algorithm is simple. Since the entities components are currently organized into archetypes, the only points of contention are those archetypes themselves. The algorithm goes as follows:
+There are two classes of functions capable to be given to the scheduling algorithm from the user: functions that can be encapsulated by one archetype and functions that require multiple archetypes to process. In other words: systems where $\lambda_{\texttt{req}}$ is a subset of the archetype type set or where $\lambda_{\texttt{req}}$ is a superset of the archetype type set. Typically, superset type requests will be scheduled more serially since they "lock" more data within the real context. 
 
-\begin{enumerate}
-    \item For each $\lambda \in \Lambda$, do the following steps 2-3:
-    \item Construct the set $x = \{\forall a \in A : a \cap \lambda_{req}\} \setminus \{\emptyset\}$.
-    \item For each archetype in set $x$, mark that archetype to run $\lambda$.
-    \item Schedule a unique thread for all archetypes.
-    \item For each thread, run each system $\lambda$ that marked this archetype.
-\end{enumerate}
+\begin{figure}[H]
+    \begin{enumerate}
+        \item For each $\lambda \in \Lambda$, do the following steps 2-3:
+        \item Construct the set $x = \{\forall a \in A : \lambda_{req} \subseteq a \} \setminus \{\emptyset\}$.
+        \item For each archetype in set $x$, mark that archetype to run $\lambda$.
+        \item Schedule a unique thread for all archetypes.
+        \item For each thread, run each system $\lambda$ that marked this archetype.
+    \end{enumerate}
+    \caption{Part 1 Scheduling}
+\end{figure}
+
+For the remaining systems unmarked, we sort them by the length of their archetype type set. This is done because the shortest ones have the best chance of running in parallel. The process from part 1 is reversed and archetypes are marked in a staging table. 
+
+\begin{figure}[H]
+    \begin{enumerate}
+        \item For each leftover $\lambda \in \Lambda$, do the following steps 2-3:
+        \item Use a set $a$, representing which archetypes have been marked this iteration.
+        \item Loop through each archetype $g \in A$, do the following steps 4-5
+        \item Skip $g$ if in $a$.
+        \item If $g \subset \lambda\_{\texttt{req}}$ then add $g$ to $a$ and $g$ to $\lambda\_{\texttt{a}}$.
+        \item After checking each archetype, reset $a$. Add 1 new row to the table.
+        \item Go back to step 1 until the leftover $\lambda$ set is empty.
+    \end{enumerate}
+    \caption{Part 2 Scheduling}
+\end{figure}
 
 \textbf{Example:} The following is an example graph marked based on the algorithm above.
 

@@ -21,6 +21,7 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{textcomp,gensymb}
+\usepackage{enumitem}
 \usepackage{tikz}
 \usetikzlibrary{arrows,automata}
 
@@ -112,29 +113,8 @@
 
 \thispagestyle{fancy}
 \begin{abstract}
-  The Entity Component System, also widely known as ECS, is the most important architectural design patterm for realtime
-  simulations. By decoupling data from logic, ECS architectures uniquely excel at facilitating compositions of dynamic
-  objects. The objective of this thesis is to explore designing an ECS such that anything that can be done concurrently
-  will be done concurrently. As such, the design does not force synchronization through locks and rather prefers caches 
-  and transactions for non-parallelizable tasks. The thesis is split into three parts.
+  This paper introduces a graph based approach to designing Concurrent ECS Architectures. Entity Component Systems, also widely known as ECS's, are one of the most important architectures used in realtime simulations. Through decoupling data from logic, ECS's excel at facilitating compositions of dynamic objects. The design introduced in this paper is wait-free and as such, the design does not force synchronization through locks and prefers caches and transactions instead. There are three parts to this thesis. Chapter \ref{chap:1} covers existing ECS literature including the motivation as to why to use ECS over Object Oriented Programming (OOP) in realtime simulation contexts. Chapter \ref{chap:2} introduces a formal view of ECS systems developed for the graph based approach in Chapter \ref{chap:3}. With this formalization, the graph model represents entities within a runtime finite-state-machine. Chapter \ref{chap:3} introduces the GECS C library constructed for this paper.
 
-  Part \ref{chap:1} will cover existing ECS literature and formally define what an ECS is, the motivation as to 
-  why to use an ECS over Object-Oriented Programming (OOP) in realtime simulation contexts, and a review of various 
-  implementation styles discovered. It's important to make note ahead of time that existing literature on designing 
-  ECS's is limited, so almost everything onward was inspired by designs found in the real world from reading code or 
-  articles instead of from scientific literature.
-
-  Part \ref{chap:2} is dedicated to the introduction of the concurrency model this paper proposes. It includes formal 
-  mathematical definitions and the set of algorithms designed for scheduling and distributing tasks across
-  the ECS. At the core of this part, the paper introduces a graph model that can represent the translation of entities
-  using a finite-state-machine.
-
-  Part \ref{chap:3} introduces the GECS C library constructed for this paper. The library contains the implementation details, API,
-  structures, and various other metrics. The way that GECS preserves vectorizability of archetypes and the
-  way it uses concurrency are explained in the greatest detail towards the end. GECS is a library that aims to optimize
-  for execution in general contexts using the theroy presented in part two. Examples of these contexts are performing
-  physics calculations or facilitating user interactions.   
-  
   Experimental results **TBD**
 \end{abstract}
 
@@ -148,7 +128,8 @@
 \input{paper/concurrency-overview}
 \input{paper/gecs}
 \input{paper/benchmarks}
-\input{paper/appendix}
+\input{paper/definitions.tex}
+\input{paper/code-refs.tex}
 % \input{paper/discussion}
 % \input{paper/conclusion}
 
