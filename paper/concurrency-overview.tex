@@ -32,7 +32,7 @@ Until now, components were assumed to be stored in large, homogeneous vectors. T
 Archetypes are a composition of types that exist within $\mathcal{P}(T)$. Archetypes, argued later in this chapter, are able to always able to maintain their vectorizability. Archetypes are critical for this concurrency model to work. They are the foundation on which what is able to be parallelized during the GECS runtime. \cite{SanderMertensECS}
 
 \subsection{Vectorization}
-Vectorization is a type of data parallelism such that an operation is simultaneously applied to different segments of a vector. This is typically achieved with some set of vector-based instructions (such as SIMD) built into a CPU or by using more than one core at a time. Regardless, for the purpose of an ECS, vectorization means that the data is kept contiguous in some manner. The goal of this concurrency model is to retain this contiguous property at all times for archetypes. \cite{vectorization_wolfe_michael}
+Vectorization is a type of data parallelism such that an operation is simultaneously applied to different segments of a vector. This is typically achieved with some set of vector-based instructions (such as SIMD) built into a CPU or by using more than one cores at a time. Regardless, for the purpose of an ECS, vectorization means that the data is kept contiguous in some manner. The goal of this concurrency model is to retain this contiguous property at all times for archetypes. \cite{vectorization_wolfe_michael}
 
 \subsubsection{The ABC Problem}
 
@@ -99,32 +99,27 @@ As an example, suppose we have an ECS with the following properties:
     A &= \{ \emptyset, [A] , [A,C] ,[B], [A,B], [A,B,C], [B,D], [D]\} \\
     \Lambda &= \emptyset
 \end{align}
-
+                                    
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.5\linewidth]{resources/graph1.png}
+    \begin{verbatim}
+                      +---------+       +---------+                                  
+        +------------>+   [A]   |<----->|  [A,C]  |<--------+                        
+        |             +---------+       +---------+         |                        
+        v                                    ^              v                        
+   +---------+        +---------+            |         +---------+                   
+   |   [∅]   |<------>|   [B]   | <----------+         | [A,B,C] |                   
+   +---------+        +---------+                      +---------+                   
+        ^                  ^  ^                             ^                        
+        |      +---------+ |  |          +---------+        |                        
+        +----->|   [D]   | |  +--------->|  [A,B]  +--------+                        
+               +---------+ |             +---------+                                 
+                           |  +---------+                                            
+                           +->|  [B,D]  |                                            
+                              +---------+                                            
+    \end{verbatim}
     \caption{Example FSM Graph Of Archetypes During Runtime}
     \label{fig:graph1}
-\end{figure}
-                                                         
-\begin{figure}[htbp]
-    \centering
-    \begin{verbatim}                                                                      
-                     +---------+       +---------+                                  
-                +--->|   [A]   |<----->|  [A,C]  |<---------+                        
-          +-----+    +---------+       +---------+          |                        
-          v                                    ^            v                        
-     +---------+        +---------+            |         +---------+                   
-     |   [0]   |<------>|   [B]   | <----------+         | [A,B,C] |                   
-     +---------+        +---------+                      +---------+                   
-         ^                  ^  ^                             ^                        
-         |               +--+  |          +---------+        |                        
-         v               v      +-------->|  [A,B]  +--------+                        
-     +---------+     +---------+          +---------+                                 
-     |   [D]   |     |  [B,D]  |                                                       
-     +---------+     +---------+                                                              
-    \end{verbatim}
-    \caption{Dense ECS Architecture Table Example}
 \end{figure}
                                                          
                                                          
@@ -132,7 +127,7 @@ As an example, suppose we have an ECS with the following properties:
 
 As shown in Figure \ref{fig:graph1}, all graphs contain the empty set $\emptyset$ as a vertex. This is because all entities when initiated contain the the archetype with no components. As components get added to entities over their runtime, entities perform state transitions to their designated archetype.
 
-It's important to note that this paper defines the serialization point to be the end of a tick and therefore entity transitions that occur during system runtime are invalid until the serialization point is reached. As such, an entities transition occurs once per tick to its final valid state. This means an entity could perform the transition, say $\{B,D\} \rightarrow \{A,B,C\}$ in one step, even though it passes through archetypes $[\{B\}, \{A,B\}]$ on the FSM. In the next tick, the edge $\{B,D\} \rightarrow \{A,B,C\}$ will be present. 
+It's important to note that this paper defines the serialization point to be the end of a tick and therefore entity transitions that occur during system runtime are invalid until the serialization point is reached. As such, an entities transition occurs once per tick to its final valid state. This means an entity could perform the transition, say $\{B,D\} \rightarrow \{A,B,C\}$ in one step, even though it passes through archetypes $[\{B\}, \{A,B\}]$ on the FSM. On the next tick, the edge $\{B,D\} \rightarrow \{A,B,C\}$ will be present. 
 
 Archetype graphs display the following properties:
 
@@ -173,7 +168,7 @@ An important scenario to consider is what occurs when an archetype loses all its
 \subsection{Scheduling Systems}
 \label{sec:scheduling}
 
-Due to the nature that ECS follow principles in of data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system all in any order or be processed in some order. Entities may be sent to the system in seemingly random orders.
+Due to the nature that ECS follows principles in data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system in any order or be processed in some order. Entities may be sent to the system at seemingly random.
 
 \subsubsection{Scheduling Algorithm}
 There are two classes of functions capable to be given to the scheduling algorithm from the user: functions that can be encapsulated by one archetype and functions that require multiple archetypes to process. In other words: systems where $\lambda_{\texttt{req}}$ is a subset of the archetype type set or where $\lambda_{\texttt{req}}$ is a superset of the archetype type set. Typically, superset type requests will be scheduled more serially since they "lock" more data within the real context. 
@@ -224,7 +219,7 @@ The ECS in Figure \ref{fig:graph2} contains four systems:
     \end{cases}
 \end{equation*}
 
-Notice how on any archetype vertex in this graph when there are multiple colors this signifies data contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implemention does provide support for embarassingly parallel access patterns. So each $\lambda$ may also have some concurrency inside its own function.
+Notice how on any archetype vertex in this graph when there are multiple colors this signifies data access contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implemention does provide support for embarassingly parallel access patterns. So each $\lambda$ may also have some concurrency inside its own function.
 
 \subsection{Entity Consolidation}
 A key concept has been omitted thus far and that is entity consolidation. How, with these systems running concurrently, are entities transitioned between archetypes? It turns out, unlike entity modification which can be handled in parallel, component addition and deletion cannot be handled in any parallel contexts. The following sections contain a proof made for this paper and two workarounds are suggested.

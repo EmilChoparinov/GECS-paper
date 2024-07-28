@@ -4,8 +4,8 @@
 The following chapter introduces the GECS C Library, built with the theory introduced in chapter \ref{chap:2}. Not all code will be presented in this paper, but the implementation is freely available online [repo link]. All code presented is written by me except for the hashing function and contains zero dependencies and is C99 compatible.
 
 \subsection{Inspiration}
-Before diving into the implementation, the inspiration behind the GECS C library is obviously graphs. So it's important to understand visually how the GECS models archetypes and worlds. The ECS creates visual divisions in structures on can be parallelized and what can't. The graph GECS is modeled from is shown in Figure \ref{fig:gecs_graph}.
-
+Before diving into the implementation, the inspiration behind the GECS C library is obviously graphs. So it's important to understand visually how the GECS models archetypes and worlds. The ECS creates visual divisions in structures on what can be parallelized and what can't. The graph GECS is modeled from is shown in Figure \ref{fig:gecs_graph}.
+ 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.5\linewidth]{resources/gecs_graph.png}
@@ -16,11 +16,11 @@ Before diving into the implementation, the inspiration behind the GECS C library
 In Figure \ref{fig:gecs_graph}, the graph displays the following properties:
 \begin{enumerate}
     \item There is always exactly one sequential world.
-    \item All archetype vertices can contain edges to other archetype vertices.
+    \item All archetype vertices can contain edges to other archetype vertices. (not on graph! sorry I'll fix next submit!)
     \item All archetype vertices always contains an edge to the sequential world.
     \item All archetype vertices always contain an edge to one parallel world.
     \item A parallel world connects to one archetype, always.
-    \item A parallel world cannot have an edge to another parallel world.
+    \item A parallel world cannot have an edge to another world.
 \end{enumerate}
 
 The key feature of the GECS library is that each archetype simulates the events it wants to apply to the sequential world before the serialization point occurs. After the serialization point, the sequential world takes over and performs an analysis on the changes within each archtype to update itself before starting the next frame.
@@ -188,7 +188,7 @@ There are three API structs that library users interface with: The \texttt{g\_it
 
 \texttt{g\_vec} is used by a user who confidently wants to do embarassingly parallel tasks using the libaries concurrency functions. It contains a reference to the offset table and composite.
 
-\texttt{g\_itr} is used by a user who wants to begin querying over the components retrieved. It's a context object on how far it has progressed. Internally, it's actually just a wrapper over \texttt{g\_vec} and just adds an index counter.
+\texttt{g\_itr} is used by a user who wants to begin querying over the components retrieved. It's a context object on how far iteration has progressed. Internally, it's actually just a wrapper over \texttt{g\_vec} and adds an index counter.
 
 \begin{figure}[htbp]
     \begin{lstlisting}[
@@ -238,7 +238,7 @@ Just like how there exists a thread unsafe function for all normal entity operat
 \subsubsection{Query Functions}
 The query functions are the set of functions used to interface and progress the runtime. The two core functions are: \texttt{gq\_vectorize} and \texttt{gq\_seq}. Depending on how the user wants their components processed, they can use the vectorize function to enable concurrent element processing on the contiguous vector or they can use the sequential function to retrieve an iterator.
 
-\textbf{\texttt{gq\_vectorize} approach:} When using the vectorize function, the only function that can use this structure is the \texttt{gq\_each} function. This function splits the composite to be processed over multiple threads.
+\textbf{\texttt{gq\_vectorize} approach:} When using the vectorize function, the only function that can use this structure is the \texttt{gq\_each} function. This function splits the composite to be processed over multiple threads for the user automatically.
 
 \textbf{\texttt{gq\_seq} approach:} After creating the \texttt{g\_itr} structure, to progress to the next element call \texttt{gq\_next} and to check if there are any elements left call \texttt{gq\_done}.
 
@@ -267,7 +267,7 @@ Entity fell, deleting
 \label{code:component_retrieval}
 \end{figure}
 
-Both of these systems run in parallel but the moment a transition occurs, it is cached until the serialization point. As such, all entities get deleted at the same time because all them share counters that started at the same value. The prints inbetween are proof that these systems are truely concurrent and there is no order on which systems run relative to eachother.
+Both of these systems run in parallel but the moment a transition occurs, it is cached until the serialization point. As such, all entities get deleted at the same time because all them share counters that started at the same value. The prints inbetween are proof that these systems are truely concurrent and there is no order on which systems run relative to each other.
 
 \subsection{Entity ID Representation}
 In GECS, Entity ID's takes inspiration from the way ID's are handled in FLECS but not to the advanced extent FLECS does. One bit is reserved to understand what context an entity lives in. Because GECS needs to support entity generation inside of a system that is running concurrently, those ID's generated do not exist in the sequential world object but inside the archetype's cache. This ID is eventually scrapped for a real ID. 
@@ -298,17 +298,17 @@ The tick lifecycle is processing exactly one tick, or one time, the \texttt{g\_p
 
 The preparation phase only has one job which is to ensure the validity of the entity FSM before systems start modifying it. This is done by checking the \texttt{reprocess\_fsm} flag.
 
-The execution phase starts by collecting all archetypes and iterating over them to reach their \texttt{contenders} vector. This vector contains pointers to the \texttt{system\_data} structs. Once loaded, threads will by scheduled to run the system process.
+The execution phase starts by collecting all archetypes and iterating over them to reach their \texttt{contenders} vector. This vector contains pointers to the \texttt{system\_data} structs. Once loaded, threads will be scheduled to run the system process.
 
 The cleanup phase is where the majority of the work occurs for GECS. It must do 4 things:
 \begin{itemize}
-    \item Check if cache requires invalidation
+    \item Check if cache is invalidated to re-cache
     \item Migrate temporary entities out of the caches
     \item Clear the caches to prepare for the next tick
     \item Defragment all composites that have unreference-able indices.
 \end{itemize}
 
-The cleanup phase algorithms for defragmentation and cache clearance are written into this section. The following sections will contain the algorithms for entity migration, Entity FSM processing, and scheduling refrenced here.
+The cleanup phase algorithms for defragmentation and cache clearance are written into this section. The following sections will contain the algorithms for entity migration, Entity FSM processing, and scheduling that were referenced here.
 
 \subsubsection{Defragmentation}
 Defragmentation is the process of re-vectorizing a composite such that all elements in the vector are referenced by one entitiy. In order to achieve this: the entities who have either been deleted or transitioned away from this archetype must have their composite index loaded and then removed from the vector. Because vector deletion is $O(N)$ time, if $e$ amount of entities are deleted, then the defragmentation algorithm will take $O(N^e)$ which is not feasible. 

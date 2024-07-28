@@ -7,6 +7,8 @@ The ECS pattern argues from the position that it can solve development issues by
 
 Scientific literature on the ECS's were limited and hard to find. Although there is not much scientific literature, there are still many articles, conferences, and well-documented libraries from respected individuals in the games industry used as references. GECS is inspired by the articles written by Sander Mertens, the creator of the very popular FLECS framework and can be found in \cite{SanderMertensECS}. 
 
+For future reference, there is a table in Appendix \ref{appendix:a} dedicated to providing definitions of various ECS concepts and concepts introduced in this paper.
+
 \subsection{Motivation \& The Weaknessess Of Object Oriented Programming}
 
 It has been exhaustively shown that Object-Oriented Programming increases the difficulty of achieving desired simulation goals and that there are plenty attractive alternatives. The two main weaknesses that an ECS intends to solve is: poor cache utilization and poor parallelization.\cite{RomeoPHD}
@@ -140,13 +142,6 @@ A core issue with the ECS pattern is that many games will burn through ID's fast
 One of the biggest flaws of ECS architectures is that perfoming direct entity relationship queries are slow and not performant because of how components and entities are organized. By adding relationships to other entities in the ID, query times can shorten. For more information on how this is done inside FLECS, which pioneered this techinque, read Sander Merterns article in \cite{SanderMertensEntityIDs}.
 
 \subsubsection{Dense ECS}
-% \begin{figure}[htbp]
-%     \centering
-%     \includegraphics[width=0.5\linewidth]{resources/dense_ecs.png}
-%     \caption{Dense ECS Architecture Example}
-%     \label{fig:dense_ecs}
-% \end{figure}
-
 \begin{figure}[htbp]
     \centering
     \begin{verbatim}
@@ -176,7 +171,7 @@ To understand Sparse ECS architectures, a small introduction into an exotic data
 \end{equation*}
 In the property above, $D$ and $S$ represent two vectors. The dense vector and sparse vector respectively. By using these two vectors in unison: lookup, insertion, and deletion time are all $O(1)$ and iteration through the set is $O(n)$. Interestingly enough, this data structure is one that does not require memory to be initialized \cite{sparse_profit}. The only downside to Sparse Sets is that they must be capable of representing an entire domain since direct index access is used. If, for example $v = 10000$, then there must be at least $10000$ elements in $S$. $D$, the dense vector, will always be the length of the set itself.
 
-The main advantage of sparse ECS implementations is how fast it is to test if an entity contains a component. Because of this, sparse ECS's advantages come in the form of query optimization. In a sparse ECS, a query collects entities by roughly performing an algorithm that queries for all entities that is the union of true values returned from all component sparse sets. Bitset ECS's are known to use similar approaches in their implementations.\cite{EnTT_SparseSets}
+The main advantage of sparse ECS implementations is how fast it is to test if an entity contains a component. Because of this, sparse ECS's advantages come in the form of query optimization. In a sparse ECS, a query collects entities by roughly performing the following algorithm: queries all entities on each sparse set. If the entity is in that sparse set, then add to the query. Bitset ECS's are known to use also similar approaches in their implementations.\cite{EnTT_SparseSets}
 
 Sparse sets also have another use where systems own their own sparse sets and they are kept to date each tick during runtime. These system owned sparse sets are then used to collect entities related to the system. An example of an ECS that does this technique is ecst. \cite{ecst}
 
