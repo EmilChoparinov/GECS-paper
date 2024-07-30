@@ -1,4 +1,4 @@
-\section{Appendex B}
+\section{Appendex A}
 \label{appendix:b}
 
 \subsubsection{Naive Dense ECS}
@@ -37,8 +37,6 @@ struct ecs_sys {
 VEC_TYPEDEC(ecs_systems, ecs_sys);
 VEC_TYPE_IMPL(ecs_systems, ecs_sys);
 
-
-
 typedef struct ecs ecs;
 struct ecs {
   int32_t           id_gen;     /* Generates unique IDs */
@@ -47,8 +45,6 @@ struct ecs {
   ecs_systems       systems;    /* Vector of all the systems */
   stalloc          *alloc;      /* The allocator for this ECS */
 };
-
-
 ecs *ecs_new(void);        /* Make new ECS */
 void ecs_progress(ecs *e); /* Process 1 tick */
 void ecs_free(ecs *e);     /* Cleanup ECS */
@@ -79,18 +75,14 @@ static vec *load_component_vector_from_id(ecs *e, int32_t comp_id) {
 
 ecs *ecs_new(void) {
   ecs *e = calloc(1, sizeof(ecs));
-
   e->id_gen = 0;
   e->alloc = stalloc_create(1024);
   start_frame(e->alloc);
-
   entity_map_hinit(&e->entities);
   component_datamap_hinit(&e->components);
   ecs_systems_hinit(&e->systems);
-
   return e;
 }
-
 void ecs_progress(ecs *e) {
   for (int64_t sys_i = 0; sys_i < e->systems.length; sys_i++) {
     ecs_sys *sys = ecs_systems_at(&e->systems, sys_i);
@@ -153,6 +145,7 @@ void ecs_entt_add_component(ecs *e, int32_t entt, int32_t comp_id) {
   /* Set the memory at this position to zero for convenience */
   memset(vec_at(component_vector, pos), 0, component_vector->__el_size);
 }
+
 void ecs_entt_rem_component(ecs *e, int32_t entt, int32_t comp_id) {
   /* Delete the component position for the entity*/
   component_indexer_del(load_index_from_entity(e, entt), &comp_id);
@@ -206,6 +199,15 @@ void simulation_end_check() {
 
   simulation_running = false;
 }
+
+
+
+
+
+
+
+
+
 
 int main(void) {
   e = ecs_new();

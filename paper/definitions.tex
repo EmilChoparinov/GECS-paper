@@ -1,4 +1,5 @@
-\section{Appendex A}
+\section{Appendix A}
+\subsubsection{Definitions}  
 \label{appendix:a}
 
 The following are definitions used in this paper. The concepts not introduced in \ref{chap:2} are all based on the FAQ provided by \cite{SanderMertensFAQ} and \cite{RomeoPHD}'s research.
@@ -6,7 +7,7 @@ The following are definitions used in this paper. The concepts not introduced in
     \item[Entity]
         An entity is a unique identifier used to represent an "object" in a simulation. This unique identifier is used in some manner by the ECS to collect a set of components. Some ECS's try to make the identifier intelligent to optimize data queries but in general an entity is just some unique value. This will be discussed in more depth throughout the paper.
     \item[Component]
-        Generally speaking, a component is data. It can be defined as a struct, tuple, or class. For this paper, a compnent is defined to be a segment of either complete or incomplete data.
+        Generally speaking, a component is data. It can be defined as a struct, tuple, or class. For this paper, a component is defined to be a segment of either complete or incomplete data.
     \item[System]
         A system is a function defined by the ECS user that intends to execute operations over a collection of entities. A system contains two parts: the query and execution phase. A system initially queries the ECS to collect related components, which it will then pass to the function and execute.
     \item[Tick]
@@ -16,7 +17,7 @@ The following are definitions used in this paper. The concepts not introduced in
     \item[Archetype] 
         An archetype is a unique set of types.
     \item[Vectorization]
-        The process in which a homogeneous set of components exist in memory such that they are contiguous, and allow for operations to be done in parallel with SIMD instructions.
+        The process of transforming data such that they can be executed simultaneously using vector processors or SIMD instructions. Typically, the data is arranged contiguously in memory.
+    \item[Finite State Machine]
+        A Finite State Machine is a mathematical model used to design systems that have a finite set of states. It's used to model complex behaviors and tasks. The model typically has a set of predefined states, and a transition function, and a set of allowed inputs. 
   \end{description}
-
-

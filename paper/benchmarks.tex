@@ -1,2 +1,56 @@
 \section{Benchmarks}
-TBD
+Due to the scope of this project there was not much time left for benchmarks and generating benchmark statistics. Most benchmarking efforts found online were not benching concurrent behaviors that this engine would excel at. For example, the most comprehensive set of benchmarking statistics can be found in reference \cite{ECS_benchmark}. The system benchmarks do not test the concurrency of systems and place emphasis on the performance of the libraries batch processing implementation. GECS supports very minimal batch processing so the library cannot compete. It's also worth noting that after a certain threshold of about 256 entities, other libraries start processing entity requests through a different way.
+
+It's also important to note I could not get the code from \cite{ECS_benchmark} working on my local machine. The GECS values are from local benchmark efforts while the rest are on their directly from another dataset.
+
+The following are all benchmarks:
+
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{lllll}
+        Entity Count & GECS      & EnTT   & FLECS    &  \\
+        1            & 98000ns   & 2868ns & 401342ns &  \\
+        4            & 117000ns  & 3812ns & 405156ns &  \\
+        8            & 413000ns  & 3467ns & 407955ns &  \\
+        16           & 855000ns  & 3801ns & 408108ns &  \\
+        32           & 1875000ns & 4476ns & 414509ns &  \\
+        64           & 13485us   & 5742ns & 422601ns &  \\
+        256          & 155664us  & 13us   & 486us    &  \\
+        $\sim$1k     & 2030297us & 100us  & 740us    & 
+    \end{tabular}
+    \caption{Create N Entities With 2 Components}    
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lllll}
+        Entity Count & GECS      & EnTT   & FLECS    &  \\
+        1            & 65000ns   & 1053ns & 349451ns &  \\
+        4            & 116000ns  & 1123ns & 350054ns &  \\
+        8            & 205000ns  & 1312ns & 351086ns &  \\
+        16           & 382000ns  & 1609ns & 351077ns &  \\
+        32           & 693000ns & 2425ns & 351619ns &  \\
+        64           & 1378000us   & 3701ns & 353878ns &  \\
+        256          & 6267000us  & 11us   & 362us    &  \\
+        $\sim$1k     & 2231600us & 43us  & 400us    & 
+    \end{tabular}
+    \caption{Destroy N Entities With 2 Components}    
+\end{table}
+
+The destroy table also includes in it the entity creation time. So the time may be slightly less over each one.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lllll}
+    Entity Count & GECS      & EnTT   & FLECS    &  \\
+    1            & 65us   & 3ns & 26ns &  \\
+    4            & 153us  & 12ns & 105ns &  \\
+    8            & 381us  & 25ns & 205ns &  \\
+    16           & 720us  & 50ns & 400ns &  \\
+    32           & 1142us & 104ns & 800ns &  \\
+    64           & 5989us   & 204ns & 1596ns &  \\
+    256          & 23489us  & 0us   & 6us   &  \\
+    $\sim$1k     & 406ms & 3us  & 25us  & 
+    \end{tabular}
+    \caption{Read N Entities With 2 Components}    
+\end{table}

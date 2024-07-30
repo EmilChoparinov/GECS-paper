@@ -2,7 +2,7 @@
 
 % PAPER TITLE
 \newcommand{\asgtitleshort}{Graph ECS}
-\newcommand{\asgtitlelong}{A Graph Based Approach To Concurrent ECS Design}
+\newcommand{\asgtitlelong}{A Graph-Based Approach To Concurrent ECS Design}
 
 % NAME
 \newcommand{\nameshort}{Emil}
@@ -114,27 +114,24 @@
 
 \thispagestyle{fancy}
 \begin{abstract}
-  This paper introduces a graph based approach to designing Concurrent ECS Architectures. Entity Component Systems, also widely known as ECS's, are one of the most important architectures used in realtime simulations. Through decoupling data from logic, ECS's excel at facilitating compositions of dynamic objects. The design introduced in this paper is wait-free and as such, the design does not force synchronization through locks and prefers caches and transactions instead. There are three parts to this thesis. Chapter \ref{chap:1} covers existing ECS literature including the motivation as to why to use ECS over Object Oriented Programming (OOP) in realtime simulation contexts. Chapter \ref{chap:2} introduces a formal view of ECS systems developed for the graph based approach in Chapter \ref{chap:3}. With this formalization, the graph model represents entities within a runtime finite-state-machine. Chapter \ref{chap:3} introduces the GECS C library constructed for this paper.
-
-  Experimental results **TBD**
+  This paper introduces a graph based approach to designing Concurrent ECS Architectures. Entity Component Systems, also widely known as ECS's, are one of the most important architectures used in real-time simulations. Through decoupling data from logic, ECS's excel at facilitating compositions of dynamic objects. The design introduced in this paper is wait-free and as such, the design does not force synchronization through locks and prefers caches and transactions instead. There are three parts to this thesis. Chapter \ref{chap:1} covers existing ECS literature including the motivation as to why to use ECS over Object Oriented Programming (OOP) in real-time simulation contexts. Chapter \ref{chap:2} introduces a formal view of ECS systems developed for the graph based approach in Chapter \ref{chap:3}. With this formalization, the graph model represents entities within a runtime finite-state-machine. Chapter \ref{chap:3} introduces the GECS C library constructed for this paper.
 \end{abstract}
 
 \newpage
 
-\newpage
 \tableofcontents
 \newpage
 
+\input{paper/foundations}
 \input{paper/ecs-paradigm}
 \input{paper/concurrency-overview}
 \input{paper/gecs}
 \input{paper/benchmarks}
+\input{paper/conclusion}
 \appendix
-\input{paper/definitions.tex}
+% \input{paper/definitions.tex}
 \input{paper/code-refs.tex}
 \input{paper/appendix.tex}
-% \input{paper/discussion}
-% \input{paper/conclusion}
 
 \printbibliography
 

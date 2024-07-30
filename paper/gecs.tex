@@ -48,13 +48,13 @@ In Figure \ref{fig:gecs_fsm}, the graph displays the following properties:
     \item A simulated archetype cannot have an edge to another simulated archetype.
 \end{enumerate}
 
-The key feature of the GECS library is that each archetype simulates the events it wants to apply to the sequential world before the serialization point occurs. After the serialization point, the sequential world takes over and performs an analysis on the changes within each archtype to update itself before starting the next frame.
+The key feature of the GECS library is that each archetype simulates the events it wants to apply to the sequential world before the serialization point occurs. After the serialization point, the sequential world takes over and performs an analysis on the changes within each archetype to update itself before starting the next frame.
 
-Effectively, the simulated worlds are the ledgers discussed in section \ref{sec:ledger} with the added benefit instead of caching operations to be done in parallel, the world simulates as if those changes are actually happening. So at the serialization point, the only operation that needs to be performed is a $\delta$ transition to another archetype for entities in the ledger, alognside new data.
+Effectively, the simulated worlds are the ledgers discussed in section \ref{sec:ledger} with the added benefit instead of caching operations to be done in parallel, the world simulates as if those changes are actually happening. So at the serialization point, the only operation that needs to be performed is a $\delta$ transition to another archetype for entities in the ledger, alongside new data.
 
 \subsection{Data Structures}
 \label{sec:ds}
-The datastructures that compose the GECS library are thread-unsafe vectors and hashmaps. These datastructures are provided by another library self-developed called "csdsa", which contains C implementations of DSA fundamentals in C. 
+The data-structures that compose the GECS library are thread-unsafe vectors and hashmaps. These data-structures are provided by another library self-developed called "csdsa", which contains C implementations of DSA fundamentals in C. 
 
 The vector in csdsa wraps contiguous elements and provides a set of functional programming style utility functions to help with code clarity. The hashmap is implemented as an open address hashing table with a load factor of $0.75$. The set implementation is the same as the hashmap. There is nothing special about these structures. Originally, the hashmap was thread safe and was implemented using this paper \cite{hashmaps} but later found it unnecessary so it was scraped in development. 
 
@@ -67,14 +67,14 @@ The code defined in Figure \ref{code:g_core_t} is not exactly the same code as s
 \texttt{g\_core\_t} represents a world from the concurrency model and it's what's given to the library user to manipulate the ECS.
 
 \subsubsection{Flags}
-The \texttt{is\_main} flag checks if this world is the original or if it's a ledger. This is used through various points in the implementation as the recursive breakpoint when doing manipulations to \texttt{g\_core\_t} objects. 
+The \texttt{is\_main} flag checks if this world is the original or if it's a ledger. This is used through various points in the implementation as the recursive break-point when doing manipulations to \texttt{g\_core\_t} objects. 
 
-The \texttt{invalidate} flag will make more sense once the archetype struct is introduced but this exists because the \texttt{map\_t} type can grow. Each archetype maintains a cache of addresses for quick access to entity data. When the map resizes, those addresses become invalid and must be recache'd. Even though this is not ideal, the map grows by a factor of 2 each time the load factor is reached, so cache invalidations do not happen often. 
+The \texttt{invalidate} flag will make more sense once the archetype struct is introduced but this exists because the \texttt{map\_t} type can grow. Each archetype maintains a cache of addresses for quick access to entity data. When the map resizes, those addresses become invalid and must be re-cache'd. Even though this is not ideal, the map grows by a factor of 2 each time the load factor is reached, so cache invalidation's do not happen often. 
 
 The \texttt{invalidate\_fsm} flag is a flag that gets set whenever a new archetype is added to the graph. This is because the systems must get redistributed across the graph.
 
 \subsubsection{Data}
-\texttt{component\_registery} and \texttt{archetype\_registry} are maps that utilize the hashing function. This is because component ids are generated via hashing and archetypes are sets of component ids. In order to ensure the same hash is generated for sets of components in differering orders, the hashes are first sorted before the archetype is passed into a hashing function. Unfortunately there was not enough time to implement a hashset and so ordered vectors are used in their place.
+\texttt{component\_registry} and \texttt{archetype\_registry} are maps that utilize the hashing function. This is because component ids are generated via hashing and archetypes are sets of component ids. In order to ensure the same hash is generated for sets of components in differing orders, the hashes are first sorted before the archetype is passed into a hashing function. Unfortunately there was not enough time to implement a hashset and so ordered vectors are used in their place.
 
 \begin{figure}[htbp]
     \begin{lstlisting}[
@@ -198,7 +198,7 @@ The \texttt{dead\_fragments} vector is also used at consolidation time. This vec
 \end{figure}
 
 \subsection{Systems}
-The following is the \texttt{system\_data} struct. The \texttt{system\_data} struct contains a function pointer \texttt{run\_system} which is provided by the user. This is the entry point into the users code. The \texttt{requirements} set is a set of hashes component names where an archetype be a superset to be paired. See section \ref{sec:scheduling}.
+The following is the \texttt{system\_data} struct. The \texttt{system\_data} struct contains a function pointer \texttt{run\_system} which is provided by the user. This is the entry point into the users code. The \texttt{requirements} set is a set of hashes component names where an archetype be a super-set to be paired. See section \ref{sec:scheduling}.
 
 \begin{figure}[H]
     \begin{lstlisting}[
@@ -220,7 +220,7 @@ There are three API structs that library users interface with: The \texttt{g\_po
 
 \texttt{g\_pool} is used by a user who wants to begin querying over components inside the current archetype. It's a context object on how far iteration has progressed. Internally, it's actually just a wrapper over \texttt{g\_pool} and adds an index counter.
 
-\texttt{g\_par} is used by a user who confidently want to do embarassingly parallel tasks using the libaries concurrency functions. It contains references to the offset table, the composite, the archetype, and the current tick.
+\texttt{g\_par} is used by a user who confidently want to do embarrassingly parallel tasks using the libraries concurrency functions. It contains references to the offset table, the composite, the archetype, and the current tick.
 
 
 \begin{figure}[htbp]
@@ -257,7 +257,7 @@ The GECS API is roughly inspired by the FLECS API in how it accesses specific co
     \item Query Functions
 \end{itemize}
 
-The header file containing the ECS defintions is linked in the Appendix \ref{appendix:a}.
+The header file containing the ECS definitions is linked in the Appendix \ref{appendix:a}.
 
 \subsection{World Functions}
 There are three world functions: \texttt{g\_create\_world}, \texttt{g\_progress}, \texttt{g\_destroy\_world} and each are self explanatory. \texttt{g\_progress} runs the ECS engine for exactly 1 tick.
@@ -282,12 +282,12 @@ In Appendix \ref{appendix:code_example_1}, there exists a demo game showing the 
 
 \begin{figure}[H]
     \begin{verbatim}
-===============
-│             │
-│             │
-│ Y         0 │
-===============
-Health: 19
+                            ===============
+                            │             │
+                            │             │
+                            │ Y         0 │
+                            ===============
+                            Health: 19
     \end{verbatim}
 \caption{Entity Cache Interface}
 \label{code:component_retrieval}
@@ -296,14 +296,14 @@ Health: 19
 The game uses the \texttt{ncurses} library for rendering to the terminal. 
 
 \subsection{Entity ID Representation}
-In GECS, only entities use ID generation only one ID generator is used throughout the runtime. The ID is syncrhonized using the C atomics library. The reasoning behind \texttt{id\_gen} being least 64 and not fast 64 is because of the 64 byte guarantee was originally important to the library as it did smart ID generation in earlier versions. The last bit used to be reserved to know which context an entity existed in, either real or simulated. But this caused an ID vanishing issue because the user would not get the correct ID returned to them when creating entities concurrently. This essentially meant that any entities made concurrently will not be accessable to the library user.
+In GECS, only entities use ID generation only one ID generator is used throughout the runtime. The ID is synchronized using the C atomics library. The reasoning behind \texttt{id\_gen} being least 64 and not fast 64 is because of the 64 byte guarantee was originally important to the library as it did smart ID generation in earlier versions. The last bit used to be reserved to know which context an entity existed in, either real or simulated. But this caused an ID vanishing issue because the user would not get the correct ID returned to them when creating entities concurrently. This essentially meant that any entities made concurrently will not be accessible to the library user.
 
 To mitigate this issue, the ID generator was made atomic. It is kept as least for future development. In the future, GECS should have related entity pools placed in the first 16 bits, much like how FLECS does it.
 
-\texttt{gid.c} contains the implemenation of how GECS increments atomics.
+\texttt{gid.c} contains the implementation of how GECS increments atomics.
 
-\subsection{The Tick Lifecycle}
-The tick lifecycle is processing exactly one tick, which means executing the \texttt{g\_progress} function completely. The cycle is split into three parts: preparation, execution, and cleanup. Both the preparation and cleanup phases are done sequentially on the main thread, while the execution phase is where threads are scheduled to run systems.
+\subsection{The Tick Life-cycle}
+The tick life-cycle is processing exactly one tick, which means executing the \texttt{g\_progress} function completely. The cycle is split into three parts: preparation, execution, and cleanup. Both the preparation and cleanup phases are done sequentially on the main thread, while the execution phase is where threads are scheduled to run systems.
 
 The preparation phase only has one job which is to ensure the validity of the entity FSM before systems start transitioning entities over it. This is done by checking the \texttt{reprocess\_fsm} flag.
 
@@ -419,7 +419,7 @@ For simulated worlds:
 The entity FSM is a collection of internal functions in the \texttt{archetypes.c, gecs.c} files. The most important of which is the \texttt{delta\_transition} function, which given a world, an id, and a set of types, performs an entity state transition.
 
 \subsubsection{Entity $\delta$ Transitions}
-Archetype transitions roughly follow the algorithm defined in chapter \ref{chap:2}. The algorithim goes as follows:
+Archetype transitions roughly follow the algorithm defined in chapter \ref{chap:2}. The algorithm goes as follows:
 
 \begin{figure}[htbp]
     \begin{enumerate}
@@ -454,7 +454,7 @@ To add a new component while a system is running is actually remarkably simple. 
 Accessing is the same story as adding a new component. In the situation there exists the same component in the simulation and in the real context's currently processing archetype, GECS will always prefer the component in the real context. This is in order to preserve vectorizability and minimize moves out of the simulation.
 
 \subsubsection{Concurrent Entity Component Deletions}
-The deletion algorithm is a tricky one due to the use case of deleting components that existed when tick started. This means when deleting, a genuine transition is required because if this entity stayed at the same archetype, it risks giving access to undefined memory. To avoid this, when deleting original components off the entity, the entire entity is offloaded into the simulatiton and thats where the state transition occurs. 
+The deletion algorithm is a tricky one due to the use case of deleting components that existed when tick started. This means when deleting, a genuine transition is required because if this entity stayed at the same archetype, it risks giving access to undefined memory. To avoid this, when deleting original components off the entity, the entire entity is offloaded into the simulation and that's where the state transition occurs. 
 
 Clearly, this makes a huge mess of things but it's nothing that cannot be recovered from. GECS uses a preference system when applying component access. The components on the archetype will stay fresh while the ones that were used to simulate the deletion transition inside the simulation will become stale. 
 
@@ -478,7 +478,7 @@ The entity consolidation algorithm is used to clear the cache of mutations saved
     \begin{enumerate}
         \item Given the sequential world $w$
         \item For each archetype $a \in w.\texttt{archetype\_registry}$, perform the following steps:
-        \item Perform Algorithm \ref{alg:entt_del_queue}
+        \item Perform Algorithm 29
         \item Perform Algorithm \ref{alg:entt_cre_queue}
         \item Perform Algorithm \ref{alg:entt_merge}
 \end{enumerate}
@@ -490,7 +490,7 @@ The entity consolidation algorithm is used to clear the cache of mutations saved
     \begin{enumerate}
         \item While the delete queue is not empty:
         \item $e \leftarrow \texttt{pop()}$
-        \item Remove $e$ from the the worlds member: \texttt{entity\_registry} 
+        \item Remove $e$ from the worlds member: \texttt{entity\_registry} 
         \item Remove $e$ from $e$'s archetype member: \texttt{entt\_positions} 
 \end{enumerate}
 \label{alg:entt_del_queue}
@@ -513,7 +513,7 @@ The entity consolidation algorithm is used to clear the cache of mutations saved
 \begin{enumerate}
     \item While the mutation queue is not empty:
     \item $e \leftarrow \texttt{pop()}$
-    \item Load the simulated archetype of $e$ into $a\_{sim}$ and the real archetype of $e$ into $a\_{real}$
+    \item Load the simulated archetype of $e$ into $a\_{sim}$ and the real archetype of $e$ into $a_{real}$
     \item Perform the type union between both archetypes into $x \leftarrow a_{sim} \cap a_{real}$
     \item Transition $e$ to archetype $x$
     \item Move over only new component data to $x$, ignoring types that already exist on $a_{real}$
@@ -525,5 +525,5 @@ The entity consolidation algorithm is used to clear the cache of mutations saved
 \subsection{Scheduling}
 Scheduling is done the exact way as stated in chapter \ref{chap:2} and is no different in the implementation. Thus, this section is omitted.
 
-\subsection{Support For Embarassingly Parallel Tasks}
-GECS supports embarassingly parallel tasks my dividing dividing an archetypes composite into chunks to run on separate threads. All this is handled by GECS and the user only needs to pass in a function they deem thread safe.
+\subsection{Support For Embarrassingly Parallel Tasks}
+GECS supports embarrassingly parallel tasks my dividing dividing an archetypes composite into chunks to run on separate threads. All this is handled by GECS and the user only needs to pass in a function they deem thread safe.

@@ -2,7 +2,7 @@
 
 \section{Concurrency Model}
 \label{chap:2}
-The following chapter introduces a formal concurrency model written of this papers own design. The core of the paper is the theory proposed here. The GECS Library uses this theory to orchistrate components to ensure an acceptable degree of wait-free concurrency. This concurrency model is of this papers own design. It's inspired by FLECs in the way that it vectorizes type compositions.
+The following chapter introduces a formal concurrency model written of this papers own design. The core of the paper is the theory proposed here. The GECS Library uses this theory to orchestrate components to ensure an acceptable degree of wait-free concurrency. This concurrency model is of this papers own design. It's inspired by FLECS in the way that it vectorizes type compositions.
 
 \subsection{Formal definition} \label{section:formal_definition}
 We define the following property of an Entity Component System to be of a tuple $W = (T, A, \delta, \Lambda)$ consisting of:
@@ -29,17 +29,17 @@ The formal definition at the beginning of this chapter starts with the introduct
 
 Until now, components were assumed to be stored in large, homogeneous vectors. This is great for cache locality, vectorizability, and is optimal for an ECS. But such a system when put in a runtime environment quickly falls apart, namely when composite type entities are introduced (entities with more than one component). Where should they get placed? In vector A or vector B? If we choose either, the other is no longer vectorizable. 
 
-Archetypes are a composition of types that exist within $\mathcal{P}(T)$. Archetypes, argued later in this chapter, are able to always able to maintain their vectorizability. Archetypes are critical for this concurrency model to work. They are the foundation on which what is able to be parallelized during the GECS runtime. \cite{SanderMertensECS}
+Archetypes are a composition of types that exist within $\mathcal{P}(T)$. Archetypes, argued later in this chapter, are able to always able to maintain their vectorizability. Archetypes are critical for this concurrency model to work. They are the foundation on which what is able to be parallelized during the GECS runtime \cite{SanderMertensECS}.
 
 \subsection{Vectorization}
-Vectorization is a type of data parallelism such that an operation is simultaneously applied to different segments of a vector. This is typically achieved with some set of vector-based instructions (such as SIMD) built into a CPU or by using more than one cores at a time. Regardless, for the purpose of an ECS, vectorization means that the data is kept contiguous in some manner. The goal of this concurrency model is to retain this contiguous property at all times for archetypes. \cite{vectorization_wolfe_michael}
+Vectorization is a type of data parallelism such that an operation is simultaneously applied to different segments of a vector. This is typically achieved with some set of vector-based instructions (such as SIMD) built into a CPU or by using more than one cores at a time. Regardless, for the purpose of an ECS, vectorization means that the data is kept contiguous in some manner. The goal of this concurrency model is to retain this contiguous property at all times for archetypes \cite{vectorization_wolfe_michael}.
 
 \subsubsection{The ABC Problem}
 
 
-The ABC Problem is a problem introduced by the FLECS creator Sander Mertens.\cite{SanderMertensECS} The problem demonstrates the effectiveness of Archetypes in component storage while retaining its vectorizability property -- and it's a good introduction to archetypes.
+The ABC Problem is a problem introduced by the FLECS creator Sander Mertens \cite{SanderMertensECS}. The problem demonstrates the effectiveness of Archetypes in component storage while retaining its vectorizability property -- and it's a good introduction to archetypes.
 
-Suppose there exists a set of entites $E$ and $n = |E|$. Suppose $T := \{A,B,C\}$ and for each type $t \in T$, there exists a homogenous vector containing elements of type $t$. Then, if all entities in $E$ have all components this is the following layout of the ECS in memory:
+Suppose there exists a set of entities $E$ and $n = |E|$. Suppose $T := \{A,B,C\}$ and for each type $t \in T$, there exists a homogeneous vector containing elements of type $t$. Then, if all entities in $E$ have all components this is the following layout of the ECS in memory:
 
 \begin{figure}[H]
     \begin{lstlisting}[
@@ -50,7 +50,7 @@ Suppose there exists a set of entites $E$ and $n = |E|$. Suppose $T := \{A,B,C\}
     B components[n];
     C components[n];
     \end{lstlisting}
-    \caption{Homogenous ECS Components}
+    \caption{Homogeneous ECS Components}
     \label{code:homogenous_ecs}
 \end{figure}
 
@@ -58,10 +58,10 @@ In this ideal world, entity ID's can be emulated by simply being the index to th
 
 Suppose during runtime one of the entities at some index $k$ removes some component $t$. In such a situation, the defined indexing property is broken because not all vectors are of the same length and the gap in memory now means it is impossible to write vectorized code for this ECS.
 
-Sander Mertens uses this setup to prove that an ECS cannot vectorize homogenous components efficiently at all. This is done by reviewing all situations in which homogenous components are mutated to make vectorization impossible or difficult. By the end, he presents an elegant alternative called archetypes and proves that archetypes leads to some form of good vectorizability.
+Sander Mertens uses this setup to prove that an ECS cannot vectorize homogeneous components efficiently at all. This is done by reviewing all situations in which homogeneous components are mutated to make vectorization impossible or difficult. By the end, he presents an elegant alternative called archetypes and proves that archetypes leads to some form of good vectorizability.
 
 \subsubsection{Archetypes}
-Simply put, an archetype is a set of types as defined in section \ref{section:formal_definition}. Archetypes add a layer of abstraction on top of types so to make ECS queries vectorizable. Instead of creating homogenous vectors based on types in $T$, we can create homogenous vectors based on archetypes in $A$. 
+Simply put, an archetype is a set of types as defined in section \ref{section:formal_definition}. Archetypes add a layer of abstraction on top of types so to make ECS queries vectorizable. Instead of creating homogeneous vectors based on types in $T$, we can create homogeneous vectors based on archetypes in $A$. 
 
 \begin{figure}[H]
     \begin{lstlisting}[
@@ -122,7 +122,7 @@ As an example, suppose we have an ECS with the following properties:
         |             +---------+       +---------+         |                        
         v                                    ^              v                        
    +---------+        +---------+            |         +---------+                   
-   |   [∅]   |<------>|   [B]   | <----------+         | [A,B,C] |                   
+   |   [ ]   |<------>|   [B]   | <----------+         | [A,B,C] |                   
    +---------+        +---------+                      +---------+                   
         ^                  ^  ^                             ^                        
         |      +---------+ |  |          +---------+        |                        
@@ -155,10 +155,10 @@ The component $C$ in Figure \ref{fig:graph1} is special in the regard that it is
 
 To loop back to the proximity example in the introduction in section \ref{sec:fsm_arc}, by representing additions and deletions as runtime state transitions it should now be clear that large performance gains are achieved via these edges. Initially, the first entity that transitions between two states in the simulation will be slow because the edge between those two vertices must be made. Once that edge is made, it is cached and the deletion and transfer of an entity to another archetype drops from $O(N)$ to $O(1)$.
 
-\subsubsection{Opertions On Entity FSM}
+\subsubsection{Operations On Entity FSM}
 The following operations are all thread safe due to the scheduling algorithm explained in section \ref{sec:scheduling}. All implementation details are abstracted away except the operations directly done on the graph. 
 
-\textbf{Entity Creation:} All entities when created start at the $\emptyset$ vertex. All entities that exist here are not queryable.
+\textbf{Entity Creation:} All entities when created start at the $\emptyset$ vertex. All entities that exist here are not query-able.
 
 \textbf{Entity Component Addition: } Aside from the simple transition using an existing edge. When a component addition occurs, two operations are completed. Suppose the archetype we are currently in is at archetype $G$ and are attempting to add component $C$ to transition to $G \cup \{C\}$. The two operations presented are the lookup operation and the connection operation.
 
@@ -175,17 +175,17 @@ When considering concurrency, data invalidation can occur if the archetype trans
 \textbf{Entity Deletion: }
 When an entity is marked for deletion, the archetype has the choice to either delete it or wait to delete all entities together in a batch at some point in the future. Both of these strategies are thread safe. 
 
-An important scenario to consider is what occurs when an archetype loses all its entities. While the archetype must be removed from the graph since no entities are there and to it'll keep it mathematically pretty, there is no need. In practice, theres a decently high probability that archetype will gain an entity again and deleting those edges will only slow down specific entity transition patterns. The memory usage of an empty archetype is inconsequential and therefore there is no real tradeoff of keeping it alive.
+An important scenario to consider is what occurs when an archetype loses all its entities. While the archetype must be removed from the graph since no entities are there and to it'll keep it mathematically pretty, there is no need. In practice, there's a decently high probability that archetype will gain an entity again and deleting those edges will only slow down specific entity transition patterns. The memory usage of an empty archetype is inconsequential and therefore there is no real trade-off of keeping it alive.
 
 \subsection{Scheduling Systems}
 \label{sec:scheduling}
 
-Due to the nature that ECS follows principles in data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarentee that all entities will enter a system in any order or be processed in some order. Entities may be sent to the system at seemingly random.
+Due to the nature that ECS follows principles in data-oriented design, these architectures have an advantage in concurrency contexts. The following section is about an algorithm designed in this paper to schedule systems concurrently in such a way they produce one valid serialization point per tick. Therefore, this algorithm does not guarantee that all entities will enter a system in any order or be processed in some order. Entities may be sent to the system at seemingly random.
 
 \subsubsection{Scheduling Algorithm}
-Before discussing the scheduling algorithm, we must define more strictly what functions are allowed to query in this architecture. Since archetypes and the state machine are abstracted away from the user, the set of rules for what is queryable and what is not should not be exposed to the user. The architecture must handle all query requests and attempt to parallelize as much as possible. 
+Before discussing the scheduling algorithm, we must define more strictly what functions are allowed to query in this architecture. Since archetypes and the state machine are abstracted away from the user, the set of rules for what is query-able and what is not should not be exposed to the user. The architecture must handle all query requests and attempt to parallelize as much as possible. 
 
-Generally, if there exists an archetype that is the superset of the query, then the query is ok. But asking a library user to only query in sets of existing archetypes is unreasonable. If the user, for example, in their render system wants to collect non-associated components \texttt{[Position, Score, Health]}, the ECS will fail. There is no archetype that holds these three random components together. This would make the query a superset of archetypes and this use case must be handeled in some manner that keeps the concurrency model valid. 
+Generally, if there exists an archetype that is the super-set of the query, then the query is OK. But asking a library user to only query in sets of existing archetypes is unreasonable. If the user, for example, in their render system wants to collect non-associated components \texttt{[Position, Score, Health]}, the ECS will fail. There is no archetype that holds these three random components together. This would make the query a super-set of archetypes and this use case must be handled in some manner that keeps the concurrency model valid. 
 
 The way this scheduling algorithm solves this is by asking the user to always give the intersection of required types. For this example, suppose:
 \begin{itemize}
@@ -194,7 +194,7 @@ The way this scheduling algorithm solves this is by asking the user to always gi
     \item Game Objects contain \texttt{[Position, Texture]}
 \end{itemize}
 
-The intersection between (Player $\cap$ Enemy $\cap$ Game Objects) is the \texttt{Position} component. Therefore the render system should request only for the \texttt{Position} component. This will allow the ECS to correctly queue up each of those entities as concurrently as possible. 
+The intersection between (Player $\cap$ Enemy $\cap$ Game Objects) is \{\texttt{Position, Texture}\} components. Therefore the render system should request for the those two components. This will allow the ECS to correctly queue up each of those entities as concurrently as possible. 
 
 But what about the other data? By applying the 4th property of the archetype graph, we know that only one version of the entity can exist at one time. Because of this, it is safe to load the rest of the entities data off the archetype when its time to process that specific position. Thread unsafe entity retrieval functions can be used because the data is essentially "locked" to only be available for the current system.
 
@@ -250,7 +250,7 @@ Another way to visualize the execution table is with colors and the FSM. The fol
     \label{fig:graph2}
 \end{figure}
  
-Notice how on any archetype vertex in the graph when there are multiple colors signifies data access contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implemention does provide support for embarassingly parallel access patterns. So each $\lambda$ may also have some concurrency inside its own function.
+Notice how on any archetype vertex in the graph when there are multiple colors signifies data access contention. Depending on ECS access patterns, an ECS could possibly squeeze a bit more performance but for most cases it is unnecessary. Although, the GECS implementation does provide support for embarrassingly parallel access patterns. So each $\lambda$ may also have some concurrency inside its own function.
 
 \subsection{Entity Consolidation}
 A key concept has been omitted thus far and that is entity consolidation. How, with these systems running concurrently, are entities transitioned between archetypes? It turns out, unlike entity modification which can be handled in parallel, component addition and deletion cannot be handled in any parallel contexts. The following sections contain a proof made for this paper and two workarounds are suggested.
@@ -266,7 +266,7 @@ There are three cases in which System A and B interact:
     \item System A generates entities slower than B consumes
 \end{enumerate}
 
-Only in case 3 can the next tick occur. The nondeterminism introduced by allowing entity list mutations can cause program stalls such as in the manner proposed. And also in the context of a concurrent ECS, this can lead to deadlocks, livelocks, and data invalidation.
+Only in case 3 can the next tick occur. The nondeterminism introduced by allowing entity list mutations can cause program stalls such as in the manner proposed. And also in the context of a concurrent ECS, this can lead to deadlocks, live-locks, and data invalidation.
 
 \subsubsection{Serializability And Ledger-Based Consolidation}
 \label{sec:ledger}
