@@ -1,5 +1,40 @@
-\section{Conclusion}
-To conclude, the question of "Can you make a wait-free ECS?" was answered as this paper proposes a model that is wait-free. What started off as a practical project, which was intended to be the main meat of the paper, led to the development of some interesting theory. The difficulties in benchmarking the model show that this ECS is a little unique in its concurrency architecture and that it is missing key production features. In my opinion, I do not believe the benchmark results are accurate measures of this engine's strengths because the benchmarks focused on processing as many entities as quickly as possible in specialized settings. This engine, with its finite state machine, has the ability to grow, which is unique. A more accurate test for GECS would be to implement the same set of fairly complex game systems in different engines and test via throughput on how fast a tick processes.
+\section{Conclusion \& Discussion}
+The data presented in the previous section highlights a few key details and problems with the current implementation of the ECS. In the two tables provided in the descriptions section, show that the single threaded ECS is orders of magnitude faster than the multi-threaded one. Because the code between both models is shared except the concurrency, I believe this has to do with GECS creating and destroying threads within the game loop. This is in theory the only difference between both models. In order to perceive concurrency gain more clearly, further research is necessary as to why the threaded version is so slow and to create a thread pool that does not destroy and create threads dynamically. 
 
-In summary, while the proposed wait-free ECS model shows promise and introduces an alternative approach, further work is necessary to refine its entity throughput and to establish more comprehensive benchmarking methods. More ongoing research could lead to improvements to the efficiency of simulations, potentially influencing future developments.
+Even with various issues slowing it down, the engine did gain a tick-rate advantage when the simulation starts processing with more than 1024 entities per chunk. 
+
+In summary, while the proposed wait-free ECS model shows promise and introduces an alternative approach, further work is necessary to refine its entity throughput. More ongoing research could lead to improvements to the efficiency of simulations, potentially influencing future developments. Regardless I view this project as a success when considering the research question was only if I could design a wait-free model in the context of ECS architecture. The model itself holds, and is able to accurately simulate as if any other ECS would. It offers the guarantee that the simulation will make progress within a finite number of steps.
+
+\subsection{Known Performance Bottlenecks}
+Looking back at this project, it's not surprising that the performance of GECS does not compete with the most popular ECS implementations. The following are features and parts of the code that in the future would bring large performance boosts. 
+
+Throughout the code, all the TODO's listed are known performance bottlenecks. Many performance optimizations are as simple as instead of doing an iterative loop, a memmove call is possible. A lot of these optimizations were omitted to keep the programs complexity down, at least during core development.
+
+\subsubsection{The CSDSA Library}
+As mentioned before, the entire code stack is written by me, including all data structures and algorithms. For example, the built-in sort used for vectors at the moment is bubble sort. So whenever sorting N entities for the deletion algorithm, the sort is not $log(N)$ but $N^2$. Other more smaller things add up such as not having a good choice for a hashing function, so GECS experiences more collisions. Overall, if this engine was to compete, it should have used boost or Glib. 
+
+\subsubsection{Unlock The Recursive Limiter}
+Since this models main speed-up property is that each archetype runs it own thread, and that each archetype can recurse and make its own simulation, if we do not clean up the simulation every tick then there is a good amount of concurrent performance to gain.
+
+GECS in its current state aggressively cleans up the simulation each tick which is unnecessary. Because of this, simulated archetypes cannot run concurrently as they do not have any entities at the beginning of all ticks, and therefore cannot make their own simulations. Section \ref{sec:recursive_design} offers an explanation on how unlocking recursion will potentially provide speed-ups.
+
+\subsubsection{No Use Of SIMD}
+There are obvious parts of the engine to me that should be using SIMD to do operations. An obvious one is the deletion algorithm. In theory, the subtraction between the vectors could be done in one vector operation.
+
+\subsubsection{No Batch \& Concurrent Moves}
+There are many internal parts of the engine that apply linear element-wise operations that could benefit from running concurrently or used over SIMD. A notable example is the defragmentation process. The two vectors are primed for SIMD since one subtracts the value from the other. This is foolishly done linearly.
+
+\subsubsection{No Thread-pools}
+For each archetype registered in GECS, it creates, spins up, and destroys the thread each iteration. This is terrible for performance and is most likely one of the key reasons why the engine is so slow with concurrency enable.
+
+\subsubsection{Hashing Overuse \& Regex}
+Every time any entity is accessed, the hash-name is re-calculated. This ended up being ridiculously expensive in the benchmark. Other libraries like FLECS, instead of constant ID look-ups, force you to cache the ID yourself to use in the call yourself. In hindsight, this would have decreased time in benchmarks quite a lot.
+
+It was not a good idea to try using regex for matching. The current implementation, when doing any component operation, requests the type name of the component. This type name turns into a string with the C pre-processor. This string may contain 1 or more type names, so it will be in the form "Component A, Component B, Component C,...". Each component name must be extracted, and each component name is hashed individually. 
+
+This means that all component operations not only require new hashes each time, but regex must also be loaded and processed.
+
+\subsubsection{No Read/Write Specification}
+The current implementation of GECS does not specify if a type is going to be used in a read or write context. By providing this, the engine could do a better job at queuing systems. Specifically in the game made for benchmarking, the objective was to provide 2 concurrent systems and one that queues up sequentially to do the logic. One of those systems is read only and the other is write only, but they contend the same data. So there was performance lost there.
+
 \newpage

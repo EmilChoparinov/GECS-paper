@@ -3,17 +3,24 @@
 
 Historically, the documented first ECS was introduced in 1998 with the game titled "Thief: The Dark Project" \cite{RomeoPHD}. The studio's motivation behind attempting an alternative to OOP was that they found OOP introduced massive class hierarchies, deep inheritance paths, and highly specialized code. In an attempt to streamline their project, they developed the first ECS \cite{Haerkoenen2019}. Apple, in their documentation for their personal ECS, specifically states "Inheritance-Based Architecture Hinders Game Design Evolution" and provides examples and reasoning why similar to the points given above \cite{AppleECSBad}.
 
-The ECS pattern argues from the position that it can solve development issues by limiting the hierarchy to contain only three layers. And thus it is classified as an architectural pattern under Data-Oriented Design (DOD) \cite{RomeoPHD}. To this day, ECS maintains its importance in simulations. For example 16 years after Thief came out, Apple in 2015 introduced an implementation of ECS into their GameplayKit API framework \cite{AppleECS}.
+The ECS pattern argues from the position that it can solve development issues by limiting the hierarchy to contain only three layers. And thus it is classified as an architectural pattern under DOD \cite{RomeoPHD}. To this day, ECS maintains its importance in simulations. For example 16 years after Thief came out, Apple in 2015 introduced an implementation of ECS into their GameplayKit API framework \cite{AppleECS}.
 
 Scientific literature on the topic of ECS's were limited and hard to find. Although there is not much scientific literature, there are still many articles, conferences, and well-documented libraries from respected individuals in the games industry used as references. GECS is inspired by the articles written by Sander Mertens, the creator of the very popular FLECS framework and can be found in \cite{SanderMertensECS}. 
 
-For future reference, there is a table in Appendix \ref{appendix:a} dedicated to providing definitions of ECS concepts and concepts introduced in this paper.
+\subsection{Research Question \& Motivation}
+The core research question of this paper is: "Can you design a wait-free ECS and hide all the concurrency?"
 
-\subsection{Motivation \& The Weaknesses Of Object Oriented Programming}
+I would not be surprised if there already exists a wait-free ECS that would satisfy my requirements but throughout my research I was unable to find one. During the research phase, many ECS's I studied mentioned their concurrency only in a passing sense. Without good documentation from these developers, it's hard to tell how much overlap there is. Some maybe followed the same design as me.
+
+Regardless, this paper is my personal design and ideas, taken with some inspiration from Sander Mertens and his FLECS ECS. My personal motivation for building this was more of a challenge. I wanted to push myself deep into a space that I enjoyed and build a functional project using only standard libraries all in C.
+
+This paper discusses the 5th iteration of my ECS, and the theory I built around it to help me grow the project in the right direction.
+
+\subsection{The Weaknesses Of Object Oriented Programming}
 
 It has been exhaustively shown that Object-Oriented Programming increases the difficulty of achieving desired simulation goals and that there are plenty attractive alternatives. The two main weaknesses that an ECS intends to solve is: poor cache utilization and poor parallelism \cite{RomeoPHD}.
 
-Large game development projects deep into using OOP principles learn quick how hard it is to keep important data cached and keep junk out. OOP hierarchies are generally connected with pointers, allowing for an easy pathway to pointer abuse by library users and developers in general. ECS proposes a solution to this by introducing the concept of components. Since components are detached from their owner, the entity, we as engine designers can place these components in memory however we please. It's not an uncommon practice to see component data be stored in long, contiguous, homogeneous vectors. Suppose there exists a type \texttt{Vec2} that contains the coordinates of all entities within the ECS. If all entities have their \texttt{Vec2} positions laid contiguous in memory, then the data is primed to be very cache friendly \cite{Wiebusch2012}\cite{SanderMertensECS}. This scenario also has a concurrency advantage since using SIMD instructions, for example, is possible. 
+Large game development projects deep into using OOP principles learn quick how hard it is to keep important data cached and keep junk out. OOP hierarchies are generally connected with pointers, allowing for an easy pathway to pointer abuse by library users and developers in general. ECS proposes a solution to this by introducing the concept of components. Since components are detached from their owner, the entity, we as engine designers can place these components in memory however we please. It's not an uncommon practice to see component data be stored in long, contiguous, homogeneous vectors. Suppose there exists a type \texttt{Vec2} that contains the coordinates of all entities within the ECS. If all entities have their \texttt{Vec2} positions laid contiguous in memory, then the data is primed to be very cache friendly \cite{Wiebusch2012}\cite{SanderMertensECS}. This scenario would put the engine in a concurrency advantage, since using SIMD instructions optimally would be possible. 
 
 It's also important to note that parallelism while using OOP can be very painful due to synchronization requirements over memory that was not engineered to effectively be parallelized. Because ECS's follows principles from Data-Oriented Design, ECS's can generally produce code that is more parallelizable by default \cite{RomeoPHD}.
 
@@ -48,7 +55,7 @@ Both architectures in \ref{fig:naive1} and \ref{fig:advanced2} are valid ECS arc
 The following section discusses a thread-unsafe naive implementation of an ECS to give a deeper understanding on how such an architecture works. The naive implementation is presented in the C language the same as the GECS Library. The full naive code is given for study in appendix \ref{appendix:b}.
 
 \subsubsection{Naive Data Structures}
-The implementation style used for this ECS is referred to as a Dense ECS \cite{EnTT_SparseSets}. A Dense ECS is a style that orders components and entities in memory into a table-like structure such that entities and components are the table rows and columns. It's up to the engine designer to decide if the entities or components should be optimized for look-up when using a Dense ECS. In the naive version provided, the components are vectorized.
+The implementation style used for this ECS is referred to as a Dense ECS \cite{EnTT_SparseSets}. A Dense ECS is a style that orders components and entities in memory into a table-like structure such that entities and components are the table rows and columns. It's up to the engine designer to decide if the entities or components should be optimized for look-up when using a Dense ECS. There is more information about Dense ECSs in the Dense ECS section. In the naive version provided, the components are vectorized.
 
 There are four core properties within the ECS structure:
 
@@ -71,49 +78,59 @@ struct ecs {
 
 Starting from the top, \texttt{id\_gen} is used to generate unique IDs for this ECS instance. Unlike the GECS library that uses hashes to collect components, this implementation shares incrementally generated IDs from \texttt{id\_gen} between entities and components.
 
-The \texttt{entities} member is a mapping between an entity ID and an intermediary type the \texttt{component\_indexer}. This indexer is another map that takes a given component ID and returns the position within a vector of this specific entities component. This transformation can be formally expressed as:
-\begin{equation*}
-    f(a, b) : Map(a) \rightarrow Map(b) \rightarrow Int
-\end{equation*}
+Since this is a Dense ECS, we must decide if entities are rows or components are rows. Since we picked components to be rows, To select a set of components is simple: access the \texttt{component\_map} and a pointer to the vector of components is returned. 
 
-This isn't the worst performance in the world, but notice that locality is affected heavily since there are two map jumps required to get the position of an entities component. Engines that intend to do lots of entity look-ups are not advised to be engineered this way. 
+But what about selecting a particular entity in this vector? We don't have the information available to us what index a particular entities data resides. This information is stored inside the \texttt{entity\_map}. The map returns another map, which contains the indices of all the entities components, called the \texttt{component\_indexer}. 
 
-The \texttt{components} member is a mapping between a component ID to a homogeneous vector of those components. This can be fed directly to the library user to do fast operations or a specific position in this component can be loaded by the entity routine described above.
+Given these two different types of selection:
 
-The \texttt{systems} member is a vector containing information required to run a system. The requirements to run a system in an ECS, as described in the appendix \ref{appendix:a}, is some function and a list of required types. 
+\textbf{Get All Components:} 
+$$\texttt{componentsOf}(compName) : Map(compName) \rightarrow Vec $$
 
-Note how there are already many opportunities to parallelize operations over the component vectors returned from the \texttt{components} map.
+\textbf{Get Specific Component Index:} 
+$$\texttt{indexOf}(entt, compName): Map(entt) \rightarrow Map(compName) \rightarrow Int$$
+
+\textbf{Get Specific Entities Component:} 
+$$\texttt{fieldOf}(entt, compName) := at(\texttt{componentsOf}, \texttt{indexOf}(entt, compName))$$
+
+\texttt{fieldOf} does not have the worst performance in the world, but notice that locality is affected heavily since there are three map jumps required, plus a lookup, to get the position of an entities component. Engines that intend to do lots of entity look-ups are not advised to be engineered this way. This ECS will perform better at high throughput tasks like physics calculations or rendering.
+
+The \texttt{components} member is a mapping between a component ID to a homogeneous vector of those components. This can be fed directly to the library user to do fast operations or a specific position in this component can be loaded by the entity \texttt{fieldOf} function described above.
+
+The \texttt{systems} member is a vector containing information required to run a system.
 
 \subsubsection{Naive Entity Operations}
 In order to create a new entity, the following steps are taken:
 \begin{enumerate}
-    \item Increment \texttt{id\_gen}
-    \item Allocate \texttt{i} $\leftarrow$ \texttt{component\_indexer} 
-    \item Store in map \texttt{entities} $\leftarrow$ \texttt{i}
-    \item Return \texttt{id\_gen}
+    \item Increment \texttt{id\_gen}. The previous value is a new entity ID
+    \item Allocate new \texttt{component\_indexer}
+    \item Store new \texttt{component\_indexer} in the \texttt{entities} map using the entity ID as the key
+    \item Return new entity ID
 \end{enumerate}
 
-In order to perform add, create, modify, or delete operations of components owned by a single entity, the \texttt{component\_indexer} of the entity must be loaded to retrieve the entities position in the component vector.
+In order to perform add, create, modify, or delete operations of components owned by a single entity, the \texttt{component\_indexer} of the entity must be loaded to retrieve the entity's position in the component vector.
 
 \begin{enumerate}
-    \item Load \texttt{e} $\leftarrow$ \texttt{entities}
-    \item Load \texttt{c} $\leftarrow$ \texttt{components}
-    \item Load \texttt{p} $\leftarrow$ \texttt{e.get(comp\_id)}
-    \item Load \texttt{y} $\leftarrow$ \texttt{c.at(p)}
-    \item Perform single component operation on $y$
+    \item Parameters are the component name and the entity's ID
+    \item Load \texttt{component\_map}
+    \item Get the component vector from the \texttt{component\_map} using the component name as key
+    \item Load \texttt{entity\_map}
+    \item Get the entity \texttt{component\_indexer} from \texttt{entity\_map} using the entity ID as key
+    \item Gat the entities position from \texttt{component\_indexer} using the component name as key
+    \item Return the value of the component vector at the index returned from the \texttt{component\_indexer}
+    \item Perform single component operation
 \end{enumerate}
 
-As can be seen in the two algorithms above, a Dense ECS is not designed for modifying a single entity at a time but many all at once. So, single entity accesses are intentionally slower that component accesses \cite{EnTT_SparseSets}.
+As can be seen in the two algorithms above, a Dense ECS is not designed for modifying a single entity at a time but many all at once. So, single entity accesses are intentionally slower than component accesses \cite{EnTT_SparseSets}.
 
 \subsubsection{Naive System Operations}
-A core feature of an ECS implementation is for the ability to query systems based on what components entities. Based on this information, each registered system will collect pointers to which vectors it will process.
+A core feature of an ECS implementation is for the ability to query systems based on sets of components. Based on this information, each registered system will collect pointers to which vectors it will process.
 
 When registering a system:
 \begin{enumerate}
-    \item For each component ID \texttt{comp id} $\leftarrow$ \texttt{components} such that \texttt{comp id} $\in$ 
-    
-    \texttt{system\_data.requirements}
-    \item Save \texttt{comp id} $\rightarrow$ \texttt{system\_data.to\_process }
+    \item For each component ID from the system requirements
+    \item Collect the component ID vector
+    \item Save a reference to it on the system
 \end{enumerate}
 
 Now all that needs to be done is once per tick, each system runs once with their components ready to be processed.
@@ -129,7 +146,7 @@ From part \ref{chap:1}, its easy to surmise that the ECS pattern can be implemen
 \subsubsection{Entity ID Styles}
 A lot can be done with just reserving a couple bits on IDs generated. The popular ECS framework called FLECS, short for Fast Lightweight Entity Component System, proposes to represent all component ID's generated in the same manner entity ID's are generated. 
 
-In the GECS C Libary implementation, entity ID's and component ID's use different generation techniques. Entity ID's are generated the traditional way using an incremental counter but component ID's are actually hashes produced by the type name. The hashing function used by GECS is djb2 \cite{hashing}, a nice and fast hashing function that has decently low collision probability. It has been slightly adjusted from the authors version found online to consume an arbitrary amount of bytes based on the \texttt{void *} type but nonetheless is the same algorithm. 
+The GECS implementation differs in this regard: entity ID's and component ID's use different generation techniques. Entity ID's are generated the traditional way using an incremental counter but component ID's are actually hashes produced by the type name. The hashing function used by GECS is djb2 \cite{hashing}, a nice and fast hashing function that has decently low collision probability. It has been slightly adjusted from the authors version found online to consume an arbitrary amount of bytes based on the \texttt{void *} type but nonetheless is the same algorithm. 
 
 FLECS splits a \texttt{uint64\_t} into two parts where the lower 32 bits represents the entity and the upper 32 bits are reserved for optimizing internal ECS mechanisms. The following are three styles that can take advantage of this smart ID system to improve runtime performance.
 
@@ -158,7 +175,7 @@ CloseCircle.each([](entity friend) { /* John, Mary, and Brad */ });
     \label{code:runtime_tagging}
 \end{figure}
 
-The code in figure \ref{code:runtime_tagging} on line 5 is when the ID of \texttt{CloseCircle} is modified to contain some direct relationship to the entities $[\texttt{John}, \texttt{Mary}, \texttt{Brad}]$. Usually such a relationship is impossible since only entities contain components, but in this case the situation is reversed: components contain entities. This is possible because entities and components have the same ID properties for runtime tagging.
+The code in figure \ref{code:runtime_tagging} on line 5 is when the ID of \texttt{CloseCircle} is modified to contain some direct relationship to the entities $[\texttt{John}, \texttt{Mary}, \texttt{Brad}]$. Usually such a relationship is impossible since only entities contain components, but in this case the situation is reversed: components contain entities. This is possible because entities and components have the same ID properties and are indistinguishable.
 
 \textbf{Reflection:}
 The upper 32 bits can be used for reflection. Reflection is the ability to serialize component data out of the ECS. Serialization can be done by constructing a new component to house other components as if it were an entity.
