@@ -3,7 +3,17 @@ The data presented in the previous section highlights a few key details and prob
 
 Even with various issues slowing it down, the engine did gain a tick-rate advantage when the simulation starts processing with more than 1024 entities per chunk. 
 
-In summary, while the proposed wait-free ECS model shows promise and introduces an alternative approach, further work is necessary to refine its entity throughput. More ongoing research could lead to improvements to the efficiency of simulations, potentially influencing future developments. Regardless I view this project as a success when considering the research question was only if I could design a wait-free model in the context of ECS architecture. The model itself holds, and is able to accurately simulate as if any other ECS would. It offers the guarantee that the simulation will make progress within a finite number of steps.
+In summary, while the proposed wait-free ECS model shows promise and introduces an alternative approach, further work is necessary to refine its entity throughput. More ongoing research could lead to improvements to the efficiency of simulations, potentially influencing future developments.
+
+\subsection{Research Question Address}
+
+Regardless, I view this project as a success when considering the research question to design a wait-free model in the context of the ECS pattern. The model itself holds, and is able to accurately simulate as if any other ECS would. It offers the guarantee that the simulation will make progress within a finite number of steps, which is essential for it to be classified as wait-free.
+
+Throughout testing, the advantages and disadvantages of this model were uncovered. It appears that this model performs better when managing large groups of entities than for smaller groups. I assume this is because each tick causes threads to be created, used, then destroyed and the cost of that is too great for smaller entity groups. But further performance testing is necessary.
+
+With this information, the main disadvantage of this model is when entities are distributed across archetypes and each archetype contains too few entities, tick-rate is negatively impacted. In order to justify the cost of making new threads, sufficient amounts of entities must exist on that archetype. Due to this, systems that contain many archetypes, with large and diverse set of components should not be recommended to use this system.
+
+This type is ECS is advantageous for when entities are densely packed into archetypes, such as for simulations like physics, environment lighting, or rendering calculations. 
 
 \subsection{Known Performance Bottlenecks}
 Looking back at this project, it's not surprising that the performance of GECS does not compete with the most popular ECS implementations. The following are features and parts of the code that in the future would bring large performance boosts. 

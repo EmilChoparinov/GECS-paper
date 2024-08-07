@@ -1,14 +1,41 @@
 \section{Fundamentals}
 
 The following section provides clarity to concepts and details necessary to understand the paper.
+\subsection{Software Architectures}
+A Software Architecture refers to the high-level structures included in some software. High-level structures include the components and their relationships to other components inside the software. Typically an architecture can be viewed as a blueprint for how to construct an application, guiding the development and ensuring the system meets specific requirement goals. Some general goals could be performance, scalability, maintainability, and so on. 
+
+The architecture introduced in this paper only has one specific goal which is to sustain the wait-free property throughout the applications lifetime.
+
+Key aspects from software architectures include:
+
+\begin{enumerate}
+    \item \textbf{Components:} Not to be confused with ECS components. A component in a software architecture is an individual unit or module of code. A component is responsible for specific functionality.
+    \item \textbf{Relationships:} The interactions between components within an architecture. Such as data flow, control flow, communication protocols, etc. Along with interactions, relationships can also describe the dependencies between components.
+\end{enumerate}
+
+Software architectures also include the concept of a pattern. Patterns are common solutions to recurring design problems. A pattern categorizes solutions such as the Model-View-Controller (MVC), the microservice, and the monolithic client-server to be part of a software architecture. These patterns are used to construct an application, with good amounts of consideration put towards its components an relationships as well. The ECS and its accompanying interface is considered an software architecture pattern because its a solution to the design problem of object organization.
+
+There are other notable parts of a software architecture that are left out for clarity, so the definition provided is a stripped down version. The more complete term includes more features that are considered less important to this paper such as constraints and quality control. Constraints limit a design such as the technology choice or regulatory environment. Quality control is how the architectures will keep up the codes maintainability.
+
+In conclusion, a software architecture is used as a blueprint when creating an application. The ECS is but a part of it, only included as a pattern while the rest of the application is free to be whatever it needs to be.
 
 \subsection{Entity Component System}
 An Entity Component System (ECS) is a software architecture pattern commonly used in game development and simulations to manage objects \cite{RomeoPHD}. All ECS's contain three parts:
 \begin{enumerate}
-    \item \textbf{Entity:} An entity is an object that serves as a unique identifier. Entities themselves carry no data or have inherent behaviors. They are IDs that link together components
-    \item \textbf{Component:} Components are data containers that store attributes or properties for an entity. Each component typically holds data relevant to one aspect of an entity like position, or health. Unlike entities, components do carry data but do not have any inherent behaviors.
+    \item \textbf{Entity:} An entity is an object that serves as a unique identifier. Entities themselves carry no data or have inherent behaviors. They are IDs that link together components.
+    \item \textbf{Component:} Components are data containers that store attributes or properties for an entity. Components are linked together by a common entity ID. Each component typically holds data relevant to one aspect of an entity like position, or health. Unlike entities, components do carry data but do not have any inherent behaviors.
     \item \textbf{System:} A system contains the logic that operates on entities. A system processes entities that possess groups of components requested by the system. For example, a rendering system might process groups of entities that contain both a position and a texture component. 
 \end{enumerate}
+
+A quirk of the ECS is that entity and component definitions appear to be circular due to an entity holding an ID which is data, which would make an entity a component. It's important to mention that the definitions given above are a facade on how an ECS internally works. 
+
+The one main behavior an ECS has is full control over the ID. The ECS creates, manages, and uses the ID for indexing purposes. ECS Architectures typically do not have this luxury when dealing with components. A user will provide and operate on components, while the ECS is only able to store them somewhere convenient. 
+
+This distinction is what gives credence to the entity not being considered a specialized component. The entity is used internally in an ECS as a connector between components. This property is fundamentally different than the job of component storage. 
+
+Take for example the ECS introduced in this paper, named GECS. The entity ID's are generated by the engine and stored independently from components in a look-up table. By giving the look-up table an entity ID, it returns information about the location of that particular entity's components. Interestingly for user convenience, GECS stores a copy of the entity ID as a component so the ID can be queried for by the user for whatever purpose.
+
+So in conclusion while the definitions appear circular, the definitions provided are from the context of what an ECS is and not its construction.
 
 \subsubsection{ECS Characteristics}
 The ECS pattern is classified as an architectural design pattern under Data-Oriented Design (DOD)\cite{RomeoPHD}. DOD is a programming paradigm that emphasizes efficient organization and access of data. Unlike Object-Oriented Design (OOP), which focuses on behavior encapsulation, DOD focuses on data storage and data access. It also includes concepts and techniques to maximize performance using specific memory access patterns and CPU cache utilization techniques.
@@ -73,18 +100,20 @@ Generally, in game development, a tick refers to the count of times at which a g
 
 The code above shows that for each time the program processes one game loop, the tick goes up. Ticks are used as internal timestamps in engines most of the time, but are useless when it comes to actually measuring time between ticks. These timestamps are used generally for testing if data is stale or not, and other internal processes. 
 
+\subsection{Rendering}
+
 \subsubsection{Tickrate}
 
-The tick-rate is the frequency at which these ticks occur, usually measured in ticks per second (Hz) \ref{Gregory_2018}. It determines how often a simulation is capable of updating its state and process all logic. Higher tick-rates mean a stronger, more performant engine. 
+The tick-rate, ticks per second, is how often a game can process an update. Usually, tick-rate is measured in hertz (Hz) since it measures the frequency on how often an update is capable and is standardized to seconds\cite{Gregory_2018}. For example, a game with a 64Hz will update 64 times per second. Higher tick-rates mean a more capable, performant engine.
 
-A tick-rate of 60Hz, for example, means that the simulation updates 60 times per second. This does not necessarily equate to more frames per second. A simulation, for example, may be able to achieve a tick-rate of 60Hz but only actually render a new game frame every 3 ticks, so at 20Hz. This would mean this simulation would run at a tick-rate of 60Hz but have 20 frames per second. 
+Even though a tick-rate of 64Hz means that the simulation updates 64 times per second, this is not to be confused with frame-rate. Frame-rate is how many times a simulation is rendered to the user in frames per second (FPS). A simulation, for example, may choose to only render a new frame every 4 ticks. Applying this, if the simulation achieved a tick-rate of 64Hz, then the frame-rate would be 16FPS.
 
 \subsubsection{Serialization Points}
 A serialization point is a concurrency concept that specifies there exists a specific point in a program where operations are ordered or synchronized. A serialization point ensures execution correctness since it provides a data guarantee of being synchronized and consistent \cite{Herlihy_2021b}.
 
 The key concepts to know about serialization points are:
 \begin{enumerate}
-    \item \textbf{Consistency:} Serialization points main data integrity by ensuring shared resources are accessed in a manner preventing data corruption.
+    \item \textbf{Consistency:} Serialization points maintain data integrity by ensuring shared resources are accessed in a manner preventing data corruption.
     \item \textbf{Ordering:} Serialization points enforce order of operations.
 \end{enumerate}
 
@@ -134,7 +163,11 @@ For an ECS, a type is used to encapsulate a component. An ECS type exists mainly
 So in conclusion, an ECS type exists to encapsulate a component and to provide type enforcement either at compile time or runtime.
 
 \subsubsection{Archetypes}
-Archetypes are an extension of an ECS type introduced by Sander Mertens, the creator of the widely popular FLECS engine. An archetype, much like the ECS type, exist for type safety and component encapsulation. 
+Archetypes are an extension of an ECS type. An archetype, much like the ECS type, exists for type safety and component encapsulation. Generally speaking, it's a concept used to group entities with a specific set of components together.
+
+Since in an ECS, entities are unique identifiers that can be associated with various components, this gives us room to arrange component data however we please. An archetype is a way to optimize the management and processing of entities that share the same component composition (their type set). 
+
+For example, imagine having entities with components like \texttt{Position}, \texttt{Velocity}, and \texttt{Render}. There might be an archetype for entities that have these three components, or an archetype for entities that have only \texttt{Position} and \texttt{Render}. The entities that use a specific set of 3 components are then stored together away from entities that use other sets of components. Doing groupings with archetypes streamlines operations because an ECS can process entities with the same archetype efficiently. If done properly, fewer memory allocations are needed and cache misses become more rare. 
 
 An archetype is a type used to encapsulate set of components. The GECS C Library introduced in this paper, uses archetypes for type safety around its concurrent model while also helping to keep components vectorized.
 
@@ -173,7 +206,7 @@ Although for how much vectorization can bring for performance gains and code rea
 In conclusion about vectorization, the GECS C Library and the model proposed do not explicitly use SIMD instructions in any fashion. The objective of this library is to provide a platform that gives access to an already pre-vectorized set of requested ECS components for the library user to perform SIMD on, or to simply do some data parallelism on.
 
 \subsection{Finite State Machine}
-A Finite-State-Machine (FSM), also sometimes referred to as a finite automaton, is a computational model used to design programs. It consists of a finite number of states, some way to transition between those states, and a set of inputs that can be applied to to get to a different state. FSM's are used to generally model programs where the there are "states" the FSM can be in, and some inputs can change that state. 
+A Finite-State-Machine (FSM), also sometimes referred to as a finite automaton, is a computational model used to design programs. It consists of a finite number of states, some way to transition between those states, and a set of inputs that can be applied to to get to a different state. FSM's are used to generally model programs where there are "states" the FSM can be in, and some inputs can change that state. 
 
 A simple example of a finite state machine is imagine a man jumping. There are two known states the man can be in: jumping or not jumping. The transition between the states is how far off the ground he is. If the man's y coordinate is 0, then he is not jumping so he goes to the "not jumping" state. If the man's y coordinate is greater than 0, then he is jumping so he goes to the "jumping" state.
 

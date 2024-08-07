@@ -7,23 +7,6 @@ The ECS pattern argues from the position that it can solve development issues by
 
 Scientific literature on the topic of ECS's were limited and hard to find. Although there is not much scientific literature, there are still many articles, conferences, and well-documented libraries from respected individuals in the games industry used as references. GECS is inspired by the articles written by Sander Mertens, the creator of the very popular FLECS framework and can be found in \cite{SanderMertensECS}. 
 
-\subsection{Research Question \& Motivation}
-The core research question of this paper is: "Can you design a wait-free ECS and hide all the concurrency?"
-
-I would not be surprised if there already exists a wait-free ECS that would satisfy my requirements but throughout my research I was unable to find one. During the research phase, many ECS's I studied mentioned their concurrency only in a passing sense. Without good documentation from these developers, it's hard to tell how much overlap there is. Some maybe followed the same design as me.
-
-Regardless, this paper is my personal design and ideas, taken with some inspiration from Sander Mertens and his FLECS ECS. My personal motivation for building this was more of a challenge. I wanted to push myself deep into a space that I enjoyed and build a functional project using only standard libraries all in C.
-
-This paper discusses the 5th iteration of my ECS, and the theory I built around it to help me grow the project in the right direction.
-
-\subsection{The Weaknesses Of Object Oriented Programming}
-
-It has been exhaustively shown that Object-Oriented Programming increases the difficulty of achieving desired simulation goals and that there are plenty attractive alternatives. The two main weaknesses that an ECS intends to solve is: poor cache utilization and poor parallelism \cite{RomeoPHD}.
-
-Large game development projects deep into using OOP principles learn quick how hard it is to keep important data cached and keep junk out. OOP hierarchies are generally connected with pointers, allowing for an easy pathway to pointer abuse by library users and developers in general. ECS proposes a solution to this by introducing the concept of components. Since components are detached from their owner, the entity, we as engine designers can place these components in memory however we please. It's not an uncommon practice to see component data be stored in long, contiguous, homogeneous vectors. Suppose there exists a type \texttt{Vec2} that contains the coordinates of all entities within the ECS. If all entities have their \texttt{Vec2} positions laid contiguous in memory, then the data is primed to be very cache friendly \cite{Wiebusch2012}\cite{SanderMertensECS}. This scenario would put the engine in a concurrency advantage, since using SIMD instructions optimally would be possible. 
-
-It's also important to note that parallelism while using OOP can be very painful due to synchronization requirements over memory that was not engineered to effectively be parallelized. Because ECS's follows principles from Data-Oriented Design, ECS's can generally produce code that is more parallelizable by default \cite{RomeoPHD}.
-
 \subsubsection{Introduction To ECS}
 For something to classify as an Entity Component System, it must contain the three properties present in its name. This paper will present two alternative ECS architectures to gain some familiarity. 
 
@@ -55,7 +38,7 @@ Both architectures in \ref{fig:naive1} and \ref{fig:advanced2} are valid ECS arc
 The following section discusses a thread-unsafe naive implementation of an ECS to give a deeper understanding on how such an architecture works. The naive implementation is presented in the C language the same as the GECS Library. The full naive code is given for study in appendix \ref{appendix:b}.
 
 \subsubsection{Naive Data Structures}
-The implementation style used for this ECS is referred to as a Dense ECS \cite{EnTT_SparseSets}. A Dense ECS is a style that orders components and entities in memory into a table-like structure such that entities and components are the table rows and columns. It's up to the engine designer to decide if the entities or components should be optimized for look-up when using a Dense ECS. There is more information about Dense ECSs in the Dense ECS section. In the naive version provided, the components are vectorized.
+The implementation style used for this ECS is referred to as a Dense ECS \cite{EnTT_SparseSets}. A Dense ECS is a style that orders components and entities in memory into a table-like structure such that entities and components are the table rows and columns. It's up to the engine designer to decide if the entities or components should be optimized for look-up when using a Dense ECS. There is more information about Dense ECS's in the Dense ECS section. In the naive version provided, the components are vectorized.
 
 There are four core properties within the ECS structure:
 
@@ -116,7 +99,7 @@ In order to perform add, create, modify, or delete operations of components owne
     \item Get the component vector from the \texttt{component\_map} using the component name as key
     \item Load \texttt{entity\_map}
     \item Get the entity \texttt{component\_indexer} from \texttt{entity\_map} using the entity ID as key
-    \item Gat the entities position from \texttt{component\_indexer} using the component name as key
+    \item Get the entities position from \texttt{component\_indexer} using the component name as key
     \item Return the value of the component vector at the index returned from the \texttt{component\_indexer}
     \item Perform single component operation
 \end{enumerate}

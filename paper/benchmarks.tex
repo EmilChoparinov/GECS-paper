@@ -1,7 +1,7 @@
 \section{Benchmarks}
 The following section covers the results of using the concurrency model within the GECS Library. An analysis is presented in the following chapter.
 
-Originally, the intended plan was to benchmark the performance between GECS and other existing frameworks using existing ECS benchmarking frameworks. In order to effectively use these benchmarks, a specialized game must be constructed with the ECS. This failed mainly due to time constraints so an alternative approach was taken. 
+Originally, the intended plan was to benchmark the performance between GECS and other existing frameworks using existing ECS benchmark frameworks. In order to effectively use these benchmarks, a specialized game must be constructed with the ECS. This failed mainly due to time constraints so an alternative approach was taken. 
 
 The following compares the performance between it's concurrency model enabled and disabled. 
 
@@ -15,7 +15,7 @@ $$
 The benchmark samples the current tick-rate every 250ms. Meaning every 250ms, we count how many ticks have occurred between 0ms and 250ms and divide it by time. Even though the definition mentioned that tick-rates are supposed to be ticks per second, for this use case I believe sampling faster will give us more accurate data. 
 
 \subsection{Simulation}
-The simulation designed for benchmarking is a rain simulator. The simulation spawns for the first couple seconds $N$, $X$ chunks of rain entities five times that then fall to the ground. Various statistics are recorded about them, such as average rain position, wind direction, etc. When they reach the floor, they are recycled and re-spawned at the top.
+The simulation designed for to be benchmarked is a rain simulator. The simulation spawns for the first couple $N$ seconds, $X$ chunks of rain entities five times that then fall to the ground. Various statistics are recorded about them, such as average rain position, wind direction, etc. When they reach the ground, they are recycled and re-spawned at the top.
 
 \begin{figure}[htbp]
     \centering
@@ -86,7 +86,7 @@ typedef struct TickRateSampler {
 
 In Figure \ref{code:sampler}, the macro \texttt{ENTITY\_SPAWN\_CHUNK} is used to specify how many entities are to be spawned all at once to affect the load on the ECS. The simulation will only spawn in a total of 5 chunks, meaning that if \texttt{ENTITY\_SPAWN\_CHUNK} is set of 16, then the ECS will manage a total of 80 rain entities. 
 
-The \texttt{TickRateSampler} struct is provided to the ECS as an entity component. This allows for the creation of a benchmarking system. So interestingly enough, we use the ECS's own code to benchmark itself. In Figure \ref{code:impl}, the function \texttt{sample\_performance} is provided to GECS as a system. GECS will queue up and call this system once per tick, making it reliable in calculating tick-rate. In order to ensure a good level of accuracy, \texttt{difftime\_ms} uses the \texttt{timespec} implementation.
+The \texttt{TickRateSampler} struct is provided to the ECS as an entity component. This allows for the creation of a benchmark system. So interestingly enough, we use the ECS's own code to benchmark itself. In Figure \ref{code:impl}, the function \texttt{sample\_performance} is provided to GECS as a system. GECS will queue up and call this system once per tick, making it reliable in calculating tick-rate. In order to ensure a good level of accuracy, \texttt{difftime\_ms} uses the \texttt{timespec} implementation.
 
 \begin{figure}[htbp]
     \begin{lstlisting}[
