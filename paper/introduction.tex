@@ -2,11 +2,11 @@
 
 The following is the introduction to the papers goals and motivations.
 
-\subsubsection{Research Question}
+\subsection{Research Question}
 
 The core research question of this paper is as follows:
 
-\blockquote{Can you design a concurrently Entity Component System such that it is wait-free, and what are the advantages and trade-offs of such a system?}
+\blockquote{Can you design a concurrent Entity Component System such that it is wait-free, and what are the advantages and trade-offs of such a system?}
 
 This paper explores various different ECS implementation styles, going through their advantages, disadvantages, and concurrency capabilities before settling on using a Dense ECS. Using this style, the paper then explores how to organize objects in the simulation to maximize concurrency without using locks. 
 
@@ -14,12 +14,15 @@ Those ideas for object organization are then formulated into a concurrency model
 
 Using this theory, the paper implements the model into the GECS C Library, short for "Graph Entity Component System", which extends the theory into a graph of state machines to manage and maintain objects.
 
-\subsubsection{Motivation}
+\subsection{Motivation}
 
 I would not be surprised if there already exists a wait-free ECS that would satisfy the research question but throughout the discovery phase, I was unable to find one that advertised itself as such. Many ECS's that were studied mentioned their concurrency only in a passing sense and without good documentation from these developers, it's hard to tell if they offered a wait-free solution.
 
 Regardless, this paper is of my personal design and ideas, built around the concept of archetypes inspired by Sander Merterns and his FLECS ECS.
 
 Personally, I wanted to set out to build an ECS that hopefully will lead to more research or improve existing or in-development ECS's concurrency models. This paper discusses the 5th iteration of the GECS ECS, and the theory built for it to help me grow the project in the right direction.
+
+\subsection{Thesis Structure}
+This paper is structured into multiple chapters with each explaining a key component leading up to the implementation. Chapter 2, the fundamentals, covers the basics necessary to read the rest of the paper. Chapter 3 covers existing literature on the topic. Chapter 4 introduces a concurrency model that is later used to implement GECS. Chapter 5 goes through an overview of the implementation. The following chapters, 6 and 7, cover the benchmarks performed and discussion around those benchmarks and what would be changed if this project was to start over with this knowledge.
 
 \newpage

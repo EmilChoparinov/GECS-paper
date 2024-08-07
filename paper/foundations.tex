@@ -4,8 +4,6 @@ The following section provides clarity to concepts and details necessary to unde
 \subsection{Software Architectures}
 A Software Architecture refers to the high-level structures included in some software. High-level structures include the components and their relationships to other components inside the software. Typically an architecture can be viewed as a blueprint for how to construct an application, guiding the development and ensuring the system meets specific requirement goals. Some general goals could be performance, scalability, maintainability, and so on. 
 
-The architecture introduced in this paper only has one specific goal which is to sustain the wait-free property throughout the applications lifetime.
-
 Key aspects from software architectures include:
 
 \begin{enumerate}
@@ -154,6 +152,8 @@ The above code is generally how most game engines work, with the same set of pha
 Wait free in the context of concurrent programming refers to the behavior that each thread has some guarantee that it will complete its operation in a finite number of steps regardless of actions performed by other threads. Even if other threads are delayed by performing long operations, a model is wait-free if each thread is guaranteed to make progress within a bounded number of steps \cite{Herlihy_2021b}.
 
 An example of what stops an algorithm from being wait-free, is waiting. If the algorithm requires any kind of synchronization in order to make progress, then that thread cannot guaranteed to make progress within a bounded number of steps.
+
+The architecture introduced in this paper only has one specific goal which is to sustain the wait-free property throughout the applications lifetime.
 
 \subsection{Types \& Archetypes}
 In computer science, a type generally refers to a classification that specifies the kind of data an object or expression can hold. And sometimes the operations that can be performed on that data. Types are fundamental in that they give meaning to data and define structures. 

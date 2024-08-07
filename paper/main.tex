@@ -23,6 +23,7 @@
 \usepackage{textcomp,gensymb}
 \usepackage{enumitem}
 \usepackage{tikz}
+\usepackage{pdfpages}
 \usetikzlibrary{arrows,automata}
 
 \usepackage{algorithm}
@@ -119,9 +120,9 @@
 
 % \newpage
 
+\includepdf[pages=-]{abstract.pdf}
 \tableofcontents
 \newpage
-
 \input{paper/introduction.tex}
 \input{paper/foundations}
 \newpage
